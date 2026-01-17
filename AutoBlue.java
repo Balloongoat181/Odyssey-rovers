@@ -110,7 +110,7 @@ public class AutoBlue extends OpMode {
             case SHOOTONE:
                 feedLeft.setPower(1.0);
                 feedRight.setPower(-1.0);
-                if (timer.milliseconds() > 400) {
+                if (timer.milliseconds() > 150) {
                     currentState = AutoState.OFFONE;
                     timer.reset();
                 }
@@ -126,7 +126,7 @@ public class AutoBlue extends OpMode {
             case SHOOTWO:
                 feedLeft.setPower(1.0);
                 feedRight.setPower(-1.0);
-                if (timer.milliseconds() > 400) {
+                if (timer.milliseconds() > 150) {
                     currentState = AutoState.OFFTWO;
                     timer.reset();
                 }
@@ -142,7 +142,7 @@ public class AutoBlue extends OpMode {
             case SHOOTTHREE:
                 feedLeft.setPower(1.0);
                 feedRight.setPower(-1.0);
-                if (timer.milliseconds() > 400) {
+                if (timer.milliseconds() > 150) {
                     currentState = AutoState.OFFTHREE;
                     timer.reset();
                 }
