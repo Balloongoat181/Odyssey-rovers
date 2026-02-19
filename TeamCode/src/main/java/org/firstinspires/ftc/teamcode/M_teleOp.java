@@ -12,7 +12,7 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
-@TeleOp(name = "Mecanum Drive TeleOp", group = "Drive")
+@TeleOp(name = "M Drive TeleOp", group = "Drive")
 public class M_teleOp extends OpMode {
 
     private static final String FL_NAME = "frontLeft";
@@ -66,7 +66,7 @@ public class M_teleOp extends OpMode {
 
     boolean shooterOn = false;
     boolean intakeOn = false;
-    boolean feederOn = false;
+    boolean gateOn = false;
 
     @Override
     public void init() {
@@ -195,11 +195,13 @@ public class M_teleOp extends OpMode {
             shooterOn = !shooterOn;
         }
 
-        // Apply shooter state
+        // Apply shooter state and feeder state
         if (shooterOn) {
             shooter.setPower(shooterPower);
+            feeder.setPower(shooterPower);
         } else {
             shooter.setPower(0);
+            feeder.setPower(0);
         }
 
         // ---------- Shooter Speed Light Control ----------
@@ -242,14 +244,14 @@ public class M_teleOp extends OpMode {
 
         // ---------- Feeder Control ----------
         if (gamepad1.xWasPressed()) {
-            feederOn = !feederOn;
+            gateOn = !gateOn;
         }
 
-        // Apply feeder state (only feed when shooter is on)
-        if (feederOn && shooterOn) {
-            feeder.setPower(shooterPower);
+        // Apply gate state
+        if (gateOn) {
+            gate.setPower(0.5);
         } else {
-            feeder.setPower(0);
+            gate.setPower(0);
         }
 
         // ---------- Telemetry ----------
@@ -269,7 +271,7 @@ public class M_teleOp extends OpMode {
         telemetry.addData("Current Velocity", currentVelocity);
         telemetry.addData("At Speed", atSpeed);
         telemetry.addData("Intake On", intakeOn);
-        telemetry.addData("Feeder On", feederOn);
+        telemetry.addData("Gate On", gateOn);
         telemetry.update();
     }
 }
