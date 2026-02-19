@@ -254,17 +254,6 @@ public class M_teleOp extends OpMode {
             gate.setPower(0);
         }
 
-        // ---------- Telemetry ----------
-        // Position info
-
-
-        // Navigation state
-        // Shoot pose saved message (show for 2 seconds)
-
-
-        // Shoot pose info
-
-
         telemetry.addData("Shooter On", shooterOn);
         telemetry.addData("Shooter Power", shooterPower);
         telemetry.addData("Target Velocity", targetVelocity);
