@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -9,8 +10,10 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.LLStatus;
+import com.pedropathing.follower.Follower;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.List;
 
@@ -31,10 +34,10 @@ public class tagFinder extends OpMode {
     // Light indicator
     // private static final String LIGHT_NAME = "shooterLight";
 
-    private DcMotorEx fl, fr, bl, br;
     private DcMotorEx shooter;
 
     private Limelight3A limelight;
+    private Follower follower;
 
     private CRServo feedLeft, feedRight;
     // private Servo shooterLight;
@@ -47,7 +50,7 @@ public class tagFinder extends OpMode {
     private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
 
     // private long shooterAtSpeedTime = 0;
-   // private boolean wasAtSpeed = false;
+    // private boolean wasAtSpeed = false;
     // private static final long SPEED_STABLE_DURATION = 2000; // milliseconds
 
     // Bumper edge detection
@@ -56,50 +59,38 @@ public class tagFinder extends OpMode {
 
     boolean shooterOn = false;
 
+    // Tag alignment control
+    private boolean alignmentActive = false;
+    private boolean aButtonPrevious = false;
+
+    // Alliance selection — toggles with gamepad1.start
+    // true = Red (tag 24), false = Blue (tag 20)
+    private boolean isRedAlliance = true;
+    private static final int RED_TAG_ID  = 24;
+    private static final int BLUE_TAG_ID = 20;
+
+    // Proportional gain for heading alignment: rotation power per degree of offset
+    // Increase this if the robot turns too slowly; decrease if it oscillates
+    private static final double ALIGNMENT_KP = 0.03;
+    // Deadband: don't rotate if the tag is within this many degrees of center
+    private static final double ALIGNMENT_DEADBAND_DEG = 1.5;
+
     @Override
     public void init() {
 
-        // Drivetrain
-        fl = hardwareMap.get(DcMotorEx.class, FL_NAME);
-        fr = hardwareMap.get(DcMotorEx.class, FR_NAME);
-        bl = hardwareMap.get(DcMotorEx.class, BL_NAME);
-        br = hardwareMap.get(DcMotorEx.class, BR_NAME);
+        // Create Pedro Follower
+        follower = Constants.createFollower(hardwareMap);
+        follower.setStartingPose(new Pose(0,0,0));
 
         // Shooter
         shooter = hardwareMap.get(DcMotorEx.class, SHOOTER_NAME);
+        shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooter.setDirection(DcMotor.Direction.FORWARD);
 
         // Gecko feed servos
         feedLeft  = hardwareMap.get(CRServo.class, FEED_LEFT_NAME);
         feedRight = hardwareMap.get(CRServo.class, FEED_RIGHT_NAME);
-
-        // RGB Indicator Light
-        //shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
-
-        // Zero power behavior
-        fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-
-        // Motor modes
-        fl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        fr.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        bl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-        // Reset and enable shooter encoder
-        shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-
-        // Motor directions
-        fl.setDirection(DcMotor.Direction.REVERSE);
-        bl.setDirection(DcMotor.Direction.REVERSE);
-        fr.setDirection(DcMotor.Direction.FORWARD);
-        br.setDirection(DcMotor.Direction.FORWARD);
-
-        shooter.setDirection(DcMotor.Direction.FORWARD);
 
         // Servo directions — adjust if spinning wrong
         feedLeft.setDirection(CRServo.Direction.FORWARD);
@@ -111,33 +102,75 @@ public class tagFinder extends OpMode {
         limelight.pipelineSwitch(0);
         limelight.start();
 
-
-        telemetry.addLine("Mecanum + Shooter + Feeder Ready");
+        telemetry.addLine("Pedro Pathing + Shooter + Feeder Ready");
         telemetry.update();
+    }
+
+    @Override
+    public void start() {
+        // Required by Pedro Pathing before you can call setTeleOpDrive in loop()
+        follower.startTeleopDrive();
     }
 
     @Override
     public void loop() {
 
-        // ---------- Drivetrain ----------
-        double y  = -gamepad1.left_stick_y;
-        double x  =  gamepad1.left_stick_x;
-        double rx =  gamepad1.right_stick_x;
+        // ---------- Drivetrain with Pedro Pathing ----------
+        double y  = -gamepad1.left_stick_y;   // Forward/backward
+        double x  =  gamepad1.left_stick_x;   // Strafe left/right
+        double rx =  gamepad1.right_stick_x;  // Rotation
 
-        double flPower = y + x + rx;
-        double frPower = y - x - rx;
-        double blPower = y - x + rx;
-        double brPower = y + x - rx;
+        // ---------- Alliance Toggle (Start Button) ----------
+        if (gamepad1.startWasPressed()) {
+            isRedAlliance = !isRedAlliance;
+        }
+        int targetTagId = isRedAlliance ? RED_TAG_ID : BLUE_TAG_ID;
 
-        double max = Math.max(1.0,
-                Math.max(Math.abs(flPower),
-                        Math.max(Math.abs(frPower),
-                                Math.max(Math.abs(blPower), Math.abs(brPower)))));
+        // ---------- Tag Alignment Toggle (A Button) ----------
+        if (gamepad1.aWasPressed()) {
+            alignmentActive = !alignmentActive;
+        }
+        aButtonPrevious = gamepad1.a;
 
-        fl.setPower(flPower / max);
-        fr.setPower(frPower / max);
-        bl.setPower(blPower / max);
-        br.setPower(brPower / max);
+        if (alignmentActive) {
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+
+                // Search for the specific alliance tag — ignore all others
+                LLResultTypes.FiducialResult targetTag = null;
+                for (LLResultTypes.FiducialResult fiducial : fiducials) {
+                    if (fiducial.getFiducialId() == targetTagId) {
+                        targetTag = fiducial;
+                        break;
+                    }
+                }
+
+                if (targetTag != null) {
+                    // tx > 0 means the tag is to the right of center
+                    double tx = targetTag.getTargetXDegrees();
+
+                    // Deadband: ignore tiny offsets to prevent jitter when nearly aligned
+                    if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
+                        // Proportional controller: more offset → more rotation power
+                        // Positive tx (tag to the right) → positive rx → rotate right toward tag
+                        rx = ALIGNMENT_KP * tx;
+                        // Clamp to valid motor power range
+                        rx = Math.max(-1.0, Math.min(1.0, rx));
+                    } else {
+                        rx = 0;
+                    }
+                }
+            }
+        } else {
+            // When alignment is OFF, use the right stick for rotation
+            rx = gamepad1.right_stick_x;
+        }
+
+        // Send movement commands to Pedro (robot-centric)
+        // setTeleOpDrive(forward, strafe, heading, fieldCentric)
+        follower.setTeleOpDrive(y, x, rx, false);
+        follower.update();
 
         // ---------- Shooter power adjust ----------
         if (gamepad1.right_bumper && !lastRightBumper) shooterPower += 0.05;
@@ -148,7 +181,7 @@ public class tagFinder extends OpMode {
         lastRightBumper = gamepad1.right_bumper;
         lastLeftBumper = gamepad1.left_bumper;
 
-        // Toggle shooter
+        // Toggle shooter (B button)
         if (gamepad1.bWasPressed()) {
             shooterOn = !shooterOn;
         }
@@ -160,35 +193,6 @@ public class tagFinder extends OpMode {
             shooter.setPower(0);
         }
 
-        // ---------- Shooter Speed Light Control ----------
-        /*double targetVelocity = shooterPower * MAX_VELOCITY;
-        double currentVelocity = shooter.getVelocity();
-        boolean atSpeed = shooterOn &&
-                Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE;
-
-// Track how long we've been at speed
-        if (atSpeed && !wasAtSpeed) {
-            // Just reached speed - start timer
-            shooterAtSpeedTime = System.currentTimeMillis();
-        }
-
-        if (!atSpeed) {
-            // Reset timer when not at speed
-            shooterAtSpeedTime = 0;
-        }
-
-        wasAtSpeed = atSpeed;
-
-// Set light color based on state
-        if (atSpeed && (System.currentTimeMillis() - shooterAtSpeedTime >= SPEED_STABLE_DURATION)) {
-            shooterLight.setPosition(0.42);  // green - stable at speed for 2 seconds
-        } else if (shooterOn) {
-            shooterLight.setPosition(0.30);  // red - shooter on but not at speed yet
-        } else {
-            shooterLight.setPosition(0.60);  // blue - shooter off
-
-        */
-
         // ---------- Gecko Feed Servos ----------
         if (gamepad1.y) {
             // Forward feed
@@ -196,7 +200,7 @@ public class tagFinder extends OpMode {
             feedRight.setPower(-1.0);
         }
         else if (gamepad1.x) {
-            // Reverse feed (Xbox/Logitech X button)
+            // Reverse feed
             feedLeft.setPower(-1.0);
             feedRight.setPower(1.0);
         }
@@ -206,38 +210,42 @@ public class tagFinder extends OpMode {
             feedRight.setPower(0);
         }
 
-
         // ---------- Debug Telemetry ----------
         telemetry.addData("Y pressed", gamepad1.y);
         telemetry.addData("X pressed", gamepad1.x);
         telemetry.addData("Shooter On", shooterOn);
         telemetry.addData("Shooter Power", shooterPower);
-        //telemetry.addData("Target Velocity", targetVelocity);
-        //telemetry.addData("Current Velocity", currentVelocity);
-        //telemetry.addData("At Speed", atSpeed);
         telemetry.addData("Feeder L Power", feedLeft.getPower());
         telemetry.addData("Feeder R Power", feedRight.getPower());
+
+        // Pedro telemetry
+        telemetry.addData("Current Pose", follower.getPose());
+        telemetry.addData("Alliance", isRedAlliance ? "RED" : "BLUE");
+        telemetry.addData("Target Tag ID", targetTagId);
+        telemetry.addData("Alignment Active", alignmentActive);
+
         LLResult result = limelight.getLatestResult();
-            if (result != null && result.isValid()) {
-                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
-                if (fiducials.size() > 0) {
-                    LLResultTypes.FiducialResult tag = fiducials.get(0);
+        if (result != null && result.isValid()) {
+            List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
 
-                    double tx = -tag.getTargetXDegrees();  // horizontal offset (degrees) - positive = right
-                    double ty = tag.getTargetYDegrees();  // vertical offset (degrees) - positive = up
-                    double ta = tag.getTargetArea();  // target area (% of image)
-
-                    telemetry.addData("Tag ID", tag.getFiducialId());
-                    telemetry.addData("TX (deg)", tx);
-                    telemetry.addData("TY (deg)", ty);
-                    telemetry.addData("TA (%)", ta);
-
-                } else {
-                    telemetry.addData("Fiducials", "None detected");
+            // Find and display data for the target tag only
+            boolean foundTarget = false;
+            for (LLResultTypes.FiducialResult fiducial : fiducials) {
+                if (fiducial.getFiducialId() == targetTagId) {
+                    telemetry.addData("Tag ID", fiducial.getFiducialId());
+                    telemetry.addData("TX (deg)", fiducial.getTargetXDegrees());
+                    telemetry.addData("TY (deg)", fiducial.getTargetYDegrees());
+                    telemetry.addData("TA (%)", fiducial.getTargetArea());
+                    foundTarget = true;
+                    break;
                 }
-            } else {
-                telemetry.addData("Limelight", "No valid result");
             }
+            if (!foundTarget) {
+                telemetry.addData("Target Tag", "Not in view");
+            }
+        } else {
+            telemetry.addData("Limelight", "No valid result");
+        }
 
         telemetry.update();
     }

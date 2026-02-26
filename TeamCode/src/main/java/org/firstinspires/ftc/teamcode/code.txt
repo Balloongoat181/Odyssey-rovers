@@ -1,0 +1,18 @@
+  ---------- Position Lock Toggle (A Button) ----------
+        if (gamepad1.aWasPressed()) {
+            positionLocked = !positionLocked;
+
+            if (positionLocked) {
+                targetPose = follower.getPose();
+                follower.holdPoint(targetPose);
+            } else {
+                follower.breakFollowing();
+            }
+        }
+        aButtonPrevious = gamepad1.a;
+
+
+
+        if (positionLocked) {
+
+            }
