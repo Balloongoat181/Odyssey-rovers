@@ -117,7 +117,7 @@ public class tagFinder extends OpMode {
 
         // ---------- Drivetrain with Pedro Pathing ----------
         double y  = -gamepad1.left_stick_y;   // Forward/backward
-        double x  =  gamepad1.left_stick_x;   // Strafe left/right
+        double x  =  -gamepad1.left_stick_x;   // Strafe left/right
         double rx = -gamepad1.right_stick_x;  // Rotation
 
         // ---------- Alliance Toggle (Start Button) ----------
