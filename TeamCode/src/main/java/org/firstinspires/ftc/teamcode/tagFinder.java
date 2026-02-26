@@ -191,7 +191,7 @@ public class tagFinder extends OpMode {
         boolean atSpeed = shooterOn &&
                 Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE;
 
-// Track how long we've been at speed
+        // Track how long we've been at speed
         if (atSpeed && !wasAtSpeed) {
             // Just reached speed - start timer
             shooterAtSpeedTime = System.currentTimeMillis();
@@ -204,80 +204,79 @@ public class tagFinder extends OpMode {
 
         wasAtSpeed = atSpeed;
 
-// Set light color based on state
+        // Set light color based on state
         if (atSpeed && (System.currentTimeMillis() - shooterAtSpeedTime >= SPEED_STABLE_DURATION)) {
             shooterLight.setPosition(0.42);  // green - stable at speed for 2 seconds
         } else if (shooterOn) {
             shooterLight.setPosition(0.30);  // red - shooter on but not at speed yet
         } else {
             shooterLight.setPosition(0.60);  // blue - shooter off
-
-
-            // Toggle shooter (B button)
-            if (gamepad1.bWasPressed()) {
-                shooterOn = !shooterOn;
-            }
-
-            // Apply shooter state
-            if (shooterOn) {
-                shooter.setPower(shooterPower);
-            } else {
-                shooter.setPower(0);
-            }
-
-            // ---------- Gecko Feed Servos ----------
-            if (gamepad1.y) {
-                // Forward feed
-                feedLeft.setPower(1.0);
-                feedRight.setPower(-1.0);
-            } else if (gamepad1.x) {
-                // Reverse feed
-                feedLeft.setPower(-1.0);
-                feedRight.setPower(1.0);
-            } else {
-                // Stop feeding
-                feedLeft.setPower(0);
-                feedRight.setPower(0);
-            }
-
-            // ---------- Debug Telemetry ----------
-            telemetry.addData("Y pressed", gamepad1.y);
-            telemetry.addData("X pressed", gamepad1.x);
-            telemetry.addData("Shooter On", shooterOn);
-            telemetry.addData("Shooter Power", shooterPower);
-            telemetry.addData("Feeder L Power", feedLeft.getPower());
-            telemetry.addData("Feeder R Power", feedRight.getPower());
-
-            // Pedro telemetry
-            telemetry.addData("Current Pose", follower.getPose());
-            telemetry.addData("Alliance", isRedAlliance ? "RED" : "BLUE");
-            telemetry.addData("Target Tag ID", targetTagId);
-            telemetry.addData("Alignment Active", alignmentActive);
-
-            LLResult result = limelight.getLatestResult();
-            if (result != null && result.isValid()) {
-                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
-
-                // Find and display data for the target tag only
-                boolean foundTarget = false;
-                for (LLResultTypes.FiducialResult fiducial : fiducials) {
-                    if (fiducial.getFiducialId() == targetTagId) {
-                        telemetry.addData("Tag ID", fiducial.getFiducialId());
-                        telemetry.addData("TX (deg)", fiducial.getTargetXDegrees());
-                        telemetry.addData("TY (deg)", fiducial.getTargetYDegrees());
-                        telemetry.addData("TA (%)", fiducial.getTargetArea());
-                        foundTarget = true;
-                        break;
-                    }
-                }
-                if (!foundTarget) {
-                    telemetry.addData("Target Tag", "Not in view");
-                }
-            } else {
-                telemetry.addData("Limelight", "No valid result");
-            }
-
-            telemetry.update();
         }
+
+        // Toggle shooter (B button)
+        if (gamepad1.bWasPressed()) {
+            shooterOn = !shooterOn;
+        }
+
+        // Apply shooter state
+        if (shooterOn) {
+            shooter.setPower(shooterPower);
+        } else {
+            shooter.setPower(0);
+        }
+
+        // ---------- Gecko Feed Servos ----------
+        if (gamepad1.y) {
+            // Forward feed
+            feedLeft.setPower(1.0);
+            feedRight.setPower(-1.0);
+        } else if (gamepad1.x) {
+            // Reverse feed
+            feedLeft.setPower(-1.0);
+            feedRight.setPower(1.0);
+        } else {
+            // Stop feeding
+            feedLeft.setPower(0);
+            feedRight.setPower(0);
+        }
+
+        // ---------- Debug Telemetry ----------
+        telemetry.addData("Y pressed", gamepad1.y);
+        telemetry.addData("X pressed", gamepad1.x);
+        telemetry.addData("Shooter On", shooterOn);
+        telemetry.addData("Shooter Power", shooterPower);
+        telemetry.addData("Feeder L Power", feedLeft.getPower());
+        telemetry.addData("Feeder R Power", feedRight.getPower());
+
+        // Pedro telemetry
+        telemetry.addData("Current Pose", follower.getPose());
+        telemetry.addData("Alliance", isRedAlliance ? "RED" : "BLUE");
+        telemetry.addData("Target Tag ID", targetTagId);
+        telemetry.addData("Alignment Active", alignmentActive);
+
+        LLResult result = limelight.getLatestResult();
+        if (result != null && result.isValid()) {
+            List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+
+            // Find and display data for the target tag only
+            boolean foundTarget = false;
+            for (LLResultTypes.FiducialResult fiducial : fiducials) {
+                if (fiducial.getFiducialId() == targetTagId) {
+                    telemetry.addData("Tag ID", fiducial.getFiducialId());
+                    telemetry.addData("TX (deg)", fiducial.getTargetXDegrees());
+                    telemetry.addData("TY (deg)", fiducial.getTargetYDegrees());
+                    telemetry.addData("TA (%)", fiducial.getTargetArea());
+                    foundTarget = true;
+                    break;
+                }
+            }
+            if (!foundTarget) {
+                telemetry.addData("Target Tag", "Not in view");
+            }
+        } else {
+            telemetry.addData("Limelight", "No valid result");
+        }
+
+        telemetry.update();
     }
 }
