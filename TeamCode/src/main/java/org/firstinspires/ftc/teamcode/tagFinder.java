@@ -118,7 +118,7 @@ public class tagFinder extends OpMode {
         // ---------- Drivetrain with Pedro Pathing ----------
         double y  = -gamepad1.left_stick_y;   // Forward/backward
         double x  =  gamepad1.left_stick_x;   // Strafe left/right
-        double rx =  gamepad1.right_stick_x;  // Rotation
+        double rx = -gamepad1.right_stick_x;  // Rotation
 
         // ---------- Alliance Toggle (Start Button) ----------
         if (gamepad1.startWasPressed()) {
@@ -154,7 +154,7 @@ public class tagFinder extends OpMode {
                     if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
                         // Proportional controller: more offset → more rotation power
                         // Positive tx (tag to the right) → positive rx → rotate right toward tag
-                        rx = ALIGNMENT_KP * tx;
+                        rx = -(ALIGNMENT_KP * tx);
                         // Clamp to valid motor power range
                         rx = Math.max(-1.0, Math.min(1.0, rx));
                     } else {
@@ -164,7 +164,7 @@ public class tagFinder extends OpMode {
             }
         } else {
             // When alignment is OFF, use the right stick for rotation
-            rx = gamepad1.right_stick_x;
+            rx = -gamepad1.right_stick_x;
         }
 
         // Send movement commands to Pedro (robot-centric)
