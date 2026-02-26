@@ -10,7 +10,7 @@ import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.LLStatus;
 
-import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 
 import java.util.List;
 
@@ -218,23 +218,27 @@ public class tagFinder extends OpMode {
         telemetry.addData("Feeder L Power", feedLeft.getPower());
         telemetry.addData("Feeder R Power", feedRight.getPower());
         LLResult result = limelight.getLatestResult();
-        if (result != null && result.isValid()) {
-            List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
-            if (fiducials.size() > 0) {
-                LLResultTypes.FiducialResult tag = fiducials.get(0);
-                telemetry.addData("Tag ID", tag.getFiducialId());
-                telemetry.addData("Tag Family", tag.getFamily());
+            if (result != null && result.isValid()) {
+                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+                if (fiducials.size() > 0) {
+                    LLResultTypes.FiducialResult tag = fiducials.get(0);
 
-                // Get pose data
-                Pose3D pose = result.getBotpose();
-                if (pose != null) {
-                    telemetry.addData("X (in)", pose.getPosition().x);
-                    telemetry.addData("Y (in)", pose.getPosition().y);
-                    telemetry.addData("Z (in)", pose.getPosition().z);
-                    telemetry.addData("Yaw (deg)", Math.toDegrees(pose.getOrientation().getYaw()));
+                    double tx = -tag.getTargetXDegrees();  // horizontal offset (degrees) - positive = right
+                    double ty = tag.getTargetYDegrees();  // vertical offset (degrees) - positive = up
+                    double ta = tag.getTargetArea();  // target area (% of image)
+
+                    telemetry.addData("Tag ID", tag.getFiducialId());
+                    telemetry.addData("TX (deg)", tx);
+                    telemetry.addData("TY (deg)", ty);
+                    telemetry.addData("TA (%)", ta);
+
+                } else {
+                    telemetry.addData("Fiducials", "None detected");
                 }
+            } else {
+                telemetry.addData("Limelight", "No valid result");
             }
-        }
+
         telemetry.update();
     }
 }
