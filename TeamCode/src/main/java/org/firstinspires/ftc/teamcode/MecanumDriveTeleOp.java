@@ -64,7 +64,7 @@ public class MecanumDriveTeleOp extends OpMode {
         feedRight = hardwareMap.get(CRServo.class, FEED_RIGHT_NAME);
 
         // RGB Indicator Light
-        //shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
+        // shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
 
         // Zero power behavior
         fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
