@@ -74,7 +74,7 @@ public class tagFinder extends OpMode {
     // Increase this if the robot turns too slowly; decrease if it oscillates
     private static final double ALIGNMENT_KP = 0.03;
     // Deadband: don't rotate if the tag is within this many degrees of center
-    private static final double ALIGNMENT_DEADBAND_DEG = 1.5;
+    private static final double ALIGNMENT_DEADBAND_DEG = .7;
 
     @Override
     public void init() {
