@@ -63,7 +63,6 @@ public class tagFinder extends OpMode {
     // Tag alignment control
     private boolean alignmentActive = false;
     private double targetHeading = 0;
-    private Pose alignmentHoldPose = new Pose(0, 0, 0);
 
     // Alliance selection — toggles with gamepad1.start
     // true = Red (tag 24), false = Blue (tag 20)
@@ -117,9 +116,6 @@ public class tagFinder extends OpMode {
     @Override
     public void loop() {
 
-        // Update Pedro first so getPose() returns fresh data this cycle
-        follower.update();
-
         // ---------- Drivetrain with Pedro Pathing ----------
         double y = -gamepad1.left_stick_y;   // Forward/backward
         double x = -gamepad1.left_stick_x;   // Strafe left/right
@@ -137,10 +133,7 @@ public class tagFinder extends OpMode {
         if (gamepad1.aWasPressed()) {
             alignmentActive = !alignmentActive;
             if (alignmentActive) {
-                // Snapshot the current pose as the hold target; Pedro will lock here
-                // and only the heading will be updated each frame from the tag
                 targetHeading = currentHeading;
-                alignmentHoldPose = follower.getPose();
             } else {
                 follower.breakFollowing();
             }
@@ -157,8 +150,7 @@ public class tagFinder extends OpMode {
                         double tx = fiducial.getTargetXDegrees();
 
                         if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
-                            // Update heading target based on tag offset.
-                            // If the robot spins the wrong way, change minus to plus.
+                            // If the robot spins the wrong way, change minus to plus
                             targetHeading = currentHeading - Math.toRadians(tx);
                         }
                         break;
@@ -166,14 +158,30 @@ public class tagFinder extends OpMode {
                 }
             }
 
-            // holdPoint uses Pedro's full heading PID — XY is locked at the snapshot,
-            // only the heading updates toward the tag each frame
-            follower.holdPoint(new Pose(alignmentHoldPose.getX(), alignmentHoldPose.getY(), targetHeading));
+            // Compute heading error, normalize to [-π, π]
+            double headingError = targetHeading - currentHeading;
+            while (headingError >  Math.PI) headingError -= 2 * Math.PI;
+            while (headingError < -Math.PI) headingError += 2 * Math.PI;
+
+            double rotationOutput = Math.max(-1.0, Math.min(1.0,
+                    Constants.followerConstants.getCoefficientsHeadingPIDF().P * headingError));
+
+            if (Math.abs(rx) > 0.05) {
+                // Driver is actively rotating — let them search, track where they end up
+                follower.setTeleOpDrive(y, x, rx, false);
+                targetHeading = currentHeading;
+            } else {
+                // Heading correction active (works whether tag is visible or not —
+                // holds last known target when tag is lost)
+                follower.setTeleOpDrive(y, x, rotationOutput, false);
+            }
         } else {
             // Alignment OFF — full manual control
             follower.setTeleOpDrive(y, x, rx, false);
             targetHeading = currentHeading;
         }
+
+        follower.update();
 
         // ---------- Shooter power adjust ----------
         if (gamepad1.right_bumper && !lastRightBumper) shooterPower += 0.05;
