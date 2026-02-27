@@ -63,6 +63,7 @@ public class tagFinder extends OpMode {
     // Tag alignment control
     private boolean alignmentActive = false;
     private double targetHeading = 0;
+    private Pose alignmentHoldPose = new Pose(0, 0, 0);
 
     // Alliance selection — toggles with gamepad1.start
     // true = Red (tag 24), false = Blue (tag 20)
@@ -135,16 +136,18 @@ public class tagFinder extends OpMode {
         // ---------- Tag Alignment Toggle (A Button) ----------
         if (gamepad1.aWasPressed()) {
             alignmentActive = !alignmentActive;
-            // Seed the target to where we are right now so Pedro doesn't
-            // immediately try to snap back to heading 0 on activation
             if (alignmentActive) {
+                // Snapshot the current pose as the hold target; Pedro will lock here
+                // and only the heading will be updated each frame from the tag
                 targetHeading = currentHeading;
+                alignmentHoldPose = follower.getPose();
+            } else {
+                follower.breakFollowing();
             }
         }
 
         if (alignmentActive) {
             LLResult result = limelight.getLatestResult();
-            boolean tagFound = false;
 
             if (result != null && result.isValid()) {
                 List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
@@ -154,30 +157,18 @@ public class tagFinder extends OpMode {
                         double tx = fiducial.getTargetXDegrees();
 
                         if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
-                            // Subtract tx: tag to the right (positive tx) means rotate right
-                            // (clockwise = decreasing heading in Pedro's convention)
-                            // If the robot spins the wrong way, change minus to plus here
+                            // Update heading target based on tag offset.
+                            // If the robot spins the wrong way, change minus to plus.
                             targetHeading = currentHeading - Math.toRadians(tx);
                         }
-                        tagFound = true;
                         break;
                     }
                 }
             }
 
-            if (tagFound) {
-                // Tag visible — Pedro's heading PID drives rotation to targetHeading
-                follower.setTeleOpDrive(y, x, 0, false, targetHeading);
-            } else if (Math.abs(rx) > 0.05) {
-                // Tag not visible but driver is actively rotating — allow manual search
-                // and track where they end up so we don't fight the stick
-                follower.setTeleOpDrive(y, x, rx, false);
-                targetHeading = currentHeading;
-            } else {
-                // Tag not visible and no manual rotation — hold last known target heading
-                // so the robot tries to rotate back toward where the tag should be
-                follower.setTeleOpDrive(y, x, 0, false, targetHeading);
-            }
+            // holdPoint uses Pedro's full heading PID — XY is locked at the snapshot,
+            // only the heading updates toward the tag each frame
+            follower.holdPoint(new Pose(alignmentHoldPose.getX(), alignmentHoldPose.getY(), targetHeading));
         } else {
             // Alignment OFF — full manual control
             follower.setTeleOpDrive(y, x, rx, false);
