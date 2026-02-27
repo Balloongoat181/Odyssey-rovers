@@ -63,6 +63,8 @@ public class tagFinder extends OpMode {
     // Tag alignment control
     private boolean alignmentActive = false;
 
+    // Target heading for Pedro to maintain (in radians)
+    private double targetHeading = 0;
 
     // Alliance selection — toggles with gamepad1.start
     // true = Red (tag 24), false = Blue (tag 20)
@@ -122,7 +124,7 @@ public class tagFinder extends OpMode {
         // ---------- Drivetrain with Pedro Pathing ----------
         double y = -gamepad1.left_stick_y;   // Forward/backward
         double x = -gamepad1.left_stick_x;   // Strafe left/right
-        double rx = -gamepad1.right_stick_x;  // Rotation
+        double rx = -gamepad1.right_stick_x;  // Rotation (used when alignment OFF)
 
         // ---------- Alliance Toggle (Start Button) ----------
         if (gamepad1.startWasPressed()) {
@@ -135,6 +137,9 @@ public class tagFinder extends OpMode {
             alignmentActive = !alignmentActive;
         }
 
+        // Get current pose and heading from Pedro
+        Pose currentPose = follower.getPose();
+        double currentHeading = currentPose.getHeading();
 
         if (alignmentActive) {
             LLResult result = limelight.getLatestResult();
@@ -154,26 +159,34 @@ public class tagFinder extends OpMode {
                     // tx > 0 means the tag is to the right of center
                     double tx = targetTag.getTargetXDegrees();
 
+                    // Convert degrees to radians
+                    double txRadians = Math.toRadians(tx);
+
                     // Deadband: ignore tiny offsets to prevent jitter when nearly aligned
                     if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
-                        // Proportional controller: more offset → more rotation power
-                        // Positive tx (tag to the right) → positive rx → rotate right toward tag
-                        rx = -(ALIGNMENT_KP * tx);
-                        // Clamp to valid motor power range
-                        rx = Math.max(-1.0, Math.min(1.0, rx));
-                    } else {
-                        rx = 0;
+                        // Calculate target heading: current heading + proportional adjustment
+                        targetHeading = currentHeading + (ALIGNMENT_KP * txRadians);
                     }
+                    // If within deadband, keep the previous target heading
+
+                } else {
+                    // If tag not visible, default to current heading
+                    targetHeading = currentHeading;
                 }
+            } else {
+                // If Limelight not valid, default to current heading
+                targetHeading = currentHeading;
             }
+
+            // Send movement with heading control: Pedro maintains the target heading
+            follower.setTeleOpDrive(y, x, 0, false, targetHeading);
         } else {
-            // When alignment is OFF, use the right stick for rotation
-            rx = -gamepad1.right_stick_x;
+            // When alignment is OFF, use the right stick for manual rotation
+            follower.setTeleOpDrive(y, x, rx, false);
+            // Update target heading to current for next time alignment is enabled
+            targetHeading = currentHeading;
         }
 
-        // Send movement commands to Pedro (robot-centric)
-        // setTeleOpDrive(forward, strafe, heading, fieldCentric)
-        follower.setTeleOpDrive(y, x, rx, false);
         follower.update();
 
         // ---------- Shooter power adjust ----------
@@ -250,6 +263,8 @@ public class tagFinder extends OpMode {
 
         // Pedro telemetry
         telemetry.addData("Current Pose", follower.getPose());
+        telemetry.addData("Current Heading (deg)", Math.toDegrees(currentHeading));
+        telemetry.addData("Target Heading (deg)", Math.toDegrees(targetHeading));
         telemetry.addData("Alliance", isRedAlliance ? "RED" : "BLUE");
         telemetry.addData("Target Tag ID", targetTagId);
         telemetry.addData("Alignment Active", alignmentActive);
