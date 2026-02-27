@@ -136,11 +136,13 @@ public class tagFinder extends OpMode {
                 targetHeading = currentHeading;
             } else {
                 follower.breakFollowing();
+                follower.startTeleopDrive();
             }
         }
 
         if (alignmentActive) {
             LLResult result = limelight.getLatestResult();
+            boolean tagFound = false;
 
             if (result != null && result.isValid()) {
                 List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
@@ -153,6 +155,7 @@ public class tagFinder extends OpMode {
                             // If the robot spins the wrong way, change minus to plus
                             targetHeading = currentHeading - Math.toRadians(tx);
                         }
+                        tagFound = true;
                         break;
                     }
                 }
@@ -166,18 +169,20 @@ public class tagFinder extends OpMode {
             double rotationOutput = Math.max(-1.0, Math.min(1.0,
                     Constants.followerConstants.getCoefficientsHeadingPIDF().P * headingError));
 
-            if (Math.abs(rx) > 0.05) {
-                // Driver is actively rotating — let them search, track where they end up
+            if (tagFound) {
+                // Tag visible — PID correction locks heading, right stick ignored
+                follower.setTeleOpDrive(y, x, rotationOutput, false);
+            } else if (Math.abs(rx) > 0.05) {
+                // Tag not visible, driver rotating to search — allow it
                 follower.setTeleOpDrive(y, x, rx, false);
                 targetHeading = currentHeading;
             } else {
-                // Heading correction active (works whether tag is visible or not —
-                // holds last known target when tag is lost)
+                // Tag not visible, no manual input — hold last known target heading
                 follower.setTeleOpDrive(y, x, rotationOutput, false);
             }
         } else {
             // Alignment OFF — full manual control
-            follower.setTeleOpDrive(y, x, rx, false);
+            follower.setTeleOpDrive(y, x, rx, true);
             targetHeading = currentHeading;
         }
 
