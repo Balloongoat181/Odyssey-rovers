@@ -116,6 +116,9 @@ public class tagFinder extends OpMode {
     @Override
     public void loop() {
 
+        // Update Pedro first so getPose() returns fresh data this cycle
+        follower.update();
+
         // ---------- Drivetrain with Pedro Pathing ----------
         double y = -gamepad1.left_stick_y;   // Forward/backward
         double x = -gamepad1.left_stick_x;   // Strafe left/right
@@ -127,12 +130,17 @@ public class tagFinder extends OpMode {
         }
         int targetTagId = isRedAlliance ? RED_TAG_ID : BLUE_TAG_ID;
 
+        double currentHeading = follower.getPose().getHeading();
+
         // ---------- Tag Alignment Toggle (A Button) ----------
         if (gamepad1.aWasPressed()) {
             alignmentActive = !alignmentActive;
+            // Seed the target to where we are right now so Pedro doesn't
+            // immediately try to snap back to heading 0 on activation
+            if (alignmentActive) {
+                targetHeading = currentHeading;
+            }
         }
-
-        double currentHeading = follower.getPose().getHeading();
 
         if (alignmentActive) {
             LLResult result = limelight.getLatestResult();
@@ -146,8 +154,10 @@ public class tagFinder extends OpMode {
                         double tx = fiducial.getTargetXDegrees();
 
                         if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
-                            // Give Pedro the full angular correction — let its heading PID do the work
-                            targetHeading = currentHeading + Math.toRadians(tx);
+                            // Subtract tx: tag to the right (positive tx) means rotate right
+                            // (clockwise = decreasing heading in Pedro's convention)
+                            // If the robot spins the wrong way, change minus to plus here
+                            targetHeading = currentHeading - Math.toRadians(tx);
                         }
                         tagFound = true;
                         break;
@@ -158,18 +168,21 @@ public class tagFinder extends OpMode {
             if (tagFound) {
                 // Tag visible — Pedro's heading PID drives rotation to targetHeading
                 follower.setTeleOpDrive(y, x, 0, false, targetHeading);
-            } else {
-                // Tag not visible — allow manual rotation with right stick to search
+            } else if (Math.abs(rx) > 0.05) {
+                // Tag not visible but driver is actively rotating — allow manual search
+                // and track where they end up so we don't fight the stick
                 follower.setTeleOpDrive(y, x, rx, false);
                 targetHeading = currentHeading;
+            } else {
+                // Tag not visible and no manual rotation — hold last known target heading
+                // so the robot tries to rotate back toward where the tag should be
+                follower.setTeleOpDrive(y, x, 0, false, targetHeading);
             }
         } else {
             // Alignment OFF — full manual control
             follower.setTeleOpDrive(y, x, rx, false);
             targetHeading = currentHeading;
         }
-
-        follower.update();
 
         // ---------- Shooter power adjust ----------
         if (gamepad1.right_bumper && !lastRightBumper) shooterPower += 0.05;
