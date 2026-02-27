@@ -62,8 +62,6 @@ public class tagFinder extends OpMode {
 
     // Tag alignment control
     private boolean alignmentActive = false;
-
-    // Target heading for Pedro to maintain (in radians)
     private double targetHeading = 0;
 
     // Alliance selection — toggles with gamepad1.start
@@ -72,11 +70,8 @@ public class tagFinder extends OpMode {
     private static final int RED_TAG_ID = 24;
     private static final int BLUE_TAG_ID = 20;
 
-    // Proportional gain for heading alignment: rotation power per degree of offset
-    // Increase this if the robot turns too slowly; decrease if it oscillates
-    private static final double ALIGNMENT_KP = 0.03;
     // Deadband: don't rotate if the tag is within this many degrees of center
-    private static final double ALIGNMENT_DEADBAND_DEG = .7;
+    private static final double ALIGNMENT_DEADBAND_DEG = 0.7;
 
     @Override
     public void init() {
@@ -137,53 +132,40 @@ public class tagFinder extends OpMode {
             alignmentActive = !alignmentActive;
         }
 
-        // Get current pose and heading from Pedro
-        Pose currentPose = follower.getPose();
-        double currentHeading = currentPose.getHeading();
+        double currentHeading = follower.getPose().getHeading();
 
         if (alignmentActive) {
             LLResult result = limelight.getLatestResult();
+            boolean tagFound = false;
+
             if (result != null && result.isValid()) {
                 List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
 
-                // Search for the specific alliance tag — ignore all others
-                LLResultTypes.FiducialResult targetTag = null;
                 for (LLResultTypes.FiducialResult fiducial : fiducials) {
                     if (fiducial.getFiducialId() == targetTagId) {
-                        targetTag = fiducial;
+                        double tx = fiducial.getTargetXDegrees();
+
+                        if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
+                            // Give Pedro the full angular correction — let its heading PID do the work
+                            targetHeading = currentHeading + Math.toRadians(tx);
+                        }
+                        tagFound = true;
                         break;
                     }
                 }
-
-                if (targetTag != null) {
-                    // tx > 0 means the tag is to the right of center
-                    double tx = targetTag.getTargetXDegrees();
-
-                    // Convert degrees to radians
-                    double txRadians = Math.toRadians(tx);
-
-                    // Deadband: ignore tiny offsets to prevent jitter when nearly aligned
-                    if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
-                        // Calculate target heading: current heading + proportional adjustment
-                        targetHeading = currentHeading + (ALIGNMENT_KP * txRadians);
-                    }
-                    // If within deadband, keep the previous target heading
-
-                } else {
-                    // If tag not visible, default to current heading
-                    targetHeading = currentHeading;
-                }
-            } else {
-                // If Limelight not valid, default to current heading
-                targetHeading = currentHeading;
             }
 
-            // Send movement with heading control: Pedro maintains the target heading
-            follower.setTeleOpDrive(y, x, 0, false, targetHeading);
+            if (tagFound) {
+                // Tag visible — Pedro's heading PID drives rotation to targetHeading
+                follower.setTeleOpDrive(y, x, 0, false, targetHeading);
+            } else {
+                // Tag not visible — allow manual rotation with right stick to search
+                follower.setTeleOpDrive(y, x, rx, false);
+                targetHeading = currentHeading;
+            }
         } else {
-            // When alignment is OFF, use the right stick for manual rotation
+            // Alignment OFF — full manual control
             follower.setTeleOpDrive(y, x, rx, false);
-            // Update target heading to current for next time alignment is enabled
             targetHeading = currentHeading;
         }
 
