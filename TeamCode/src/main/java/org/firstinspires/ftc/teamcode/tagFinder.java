@@ -171,14 +171,14 @@ public class tagFinder extends OpMode {
 
             if (tagFound) {
                 // Tag visible — PID correction locks heading, right stick ignored
-                follower.setTeleOpDrive(y, x, rotationOutput, false);
+                follower.setTeleOpDrive(y, x, rotationOutput, true);
             } else if (Math.abs(rx) > 0.05) {
                 // Tag not visible, driver rotating to search — allow it
-                follower.setTeleOpDrive(y, x, rx, false);
+                follower.setTeleOpDrive(y, x, rx, true);
                 targetHeading = currentHeading;
             } else {
                 // Tag not visible, no manual input — hold last known target heading
-                follower.setTeleOpDrive(y, x, rotationOutput, false);
+                follower.setTeleOpDrive(y, x, rotationOutput, true);
             }
         } else {
             // Alignment OFF — full manual control
