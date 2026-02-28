@@ -87,11 +87,12 @@ public class AutoRed_Hive extends OpMode {
         switch (currentState) {
 
             case DELAY:
+                shooter.setPower(0.555);
                 if (timer.milliseconds() > 5000) {
-                    shooter.setPower(0.555);
                     currentState = AutoState.BACKUP;
                     timer.reset();
                 }
+                break;
             case BACKUP:
                 fl.setPower(-0.5);
                 fr.setPower(-0.5);
