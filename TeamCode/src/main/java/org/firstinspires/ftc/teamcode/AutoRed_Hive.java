@@ -10,10 +10,10 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 @Autonomous
 public class AutoRed_Hive extends OpMode {
     enum AutoState {
-        DELAY, BACKUP, WAIT_FOR_SPINUP, SHOOTONE, OFFONE,
+        BACKUP, WAIT_FOR_SPINUP, SHOOTONE, OFFONE,
         SHOOTWO, OFFTWO,
         SHOOTTHREE, OFFTHREE,
-        SHOOTFOUR, OFFALL, MOVERIGHT, TURNLEFT, MOVEFORWARD
+        SHOOTFOUR, OFFALL
     }
 
     ElapsedTime timer = new ElapsedTime();
@@ -85,15 +85,8 @@ public class AutoRed_Hive extends OpMode {
     @Override
     public void loop() {
         switch (currentState) {
-
-            case DELAY:
-                shooter.setPower(0.555);
-                if (timer.milliseconds() > 5000) {
-                    currentState = AutoState.BACKUP;
-                    timer.reset();
-                }
-                break;
             case BACKUP:
+                shooter.setPower(0.555);
                 fl.setPower(-0.5);
                 fr.setPower(-0.5);
                 bl.setPower(-0.5);
@@ -108,7 +101,8 @@ public class AutoRed_Hive extends OpMode {
                 fr.setPower(0);
                 bl.setPower(0);
                 br.setPower(0);
-                if (timer.milliseconds() > 100) {
+
+                if (timer.milliseconds() > 5000) {
                     currentState = AutoState.SHOOTONE;
                     timer.reset();
                 }
@@ -165,32 +159,9 @@ public class AutoRed_Hive extends OpMode {
                 feedLeft.setPower(1.0);
                 feedRight.setPower(-1.0);
                 if (timer.milliseconds() > 1000) {
-                    currentState = AutoState.TURNLEFT;
-                    timer.reset();
-
-                }
-                break;
-            case TURNLEFT:
-                feedLeft.setPower(0);
-                feedRight.setPower(0);
-                shooter.setPower(0);
-                fl.setPower(-0.5);
-                fr.setPower(0.5);
-                bl.setPower(-0.5);
-                br.setPower(0.5);
-                if (timer.milliseconds() > 500) {
-                    currentState = AutoState.MOVEFORWARD;
-                    timer.reset();
-                }
-                break;
-            case MOVEFORWARD:
-                fl.setPower(0.5);
-                fr.setPower(0.5);
-                bl.setPower(0.5);
-                br.setPower(0.5);
-                if (timer.milliseconds() > 700) {
                     currentState = AutoState.OFFALL;
                     timer.reset();
+
                 }
                 break;
             case OFFALL:
