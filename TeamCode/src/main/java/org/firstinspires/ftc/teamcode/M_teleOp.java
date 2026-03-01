@@ -22,9 +22,6 @@ public class M_teleOp extends OpMode {
 
     private static final String SHOOTER_NAME = "shooter";
 
-    // Gecko feed servos
-    private static final String FEEDER_NAME  = "Feeder";
-
 
     // Light indicator
     private static final String LIGHT_NAME = "shooterLight";
@@ -37,7 +34,6 @@ public class M_teleOp extends OpMode {
     private DcMotorEx shooter;
     private DcMotorEx intake;
 
-    private DcMotorEx feeder;
 
     private CRServo gate;
 
@@ -87,8 +83,6 @@ public class M_teleOp extends OpMode {
         intake = hardwareMap.get(DcMotorEx.class, INTAKE_NAME);
         gate = hardwareMap.get(CRServo.class, GATE_NAME);
 
-        // Feeder
-        feeder = hardwareMap.get(DcMotorEx.class, FEEDER_NAME);
 
 
         // RGB Indicator Light
@@ -101,7 +95,6 @@ public class M_teleOp extends OpMode {
         br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        feeder.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
 
@@ -114,7 +107,6 @@ public class M_teleOp extends OpMode {
         // Reset and enable shooter encoder
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        feeder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // Motor directions
@@ -129,8 +121,6 @@ public class M_teleOp extends OpMode {
 
 
         // Feeder direction
-        feeder.setDirection(DcMotor.Direction.FORWARD);
-
         telemetry.addLine("Mecanum + Shooter + Feeder + Intake Ready");
         telemetry.update();
     }
@@ -195,13 +185,11 @@ public class M_teleOp extends OpMode {
             shooterOn = !shooterOn;
         }
 
-        // Apply shooter state and feeder state
+        // Apply shooter state
         if (shooterOn) {
             shooter.setPower(shooterPower);
-            feeder.setPower(shooterPower);
         } else {
             shooter.setPower(0);
-            feeder.setPower(0);
         }
 
         // ---------- Shooter Speed Light Control ----------
