@@ -86,7 +86,7 @@ public class AutoRed_Hive extends OpMode {
     public void loop() {
         switch (currentState) {
             case BACKUP:
-                shooter.setPower(0.555);
+                shooter.setPower(0.5);
                 fl.setPower(-0.5);
                 fr.setPower(-0.5);
                 bl.setPower(-0.5);
