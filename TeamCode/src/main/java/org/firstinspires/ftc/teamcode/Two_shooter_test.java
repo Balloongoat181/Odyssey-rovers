@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.Servo;
 
 @TeleOp(name = "Two shooter test", group = "Drive")
 public class Two_shooter_test extends OpMode {
@@ -23,7 +24,7 @@ public class Two_shooter_test extends OpMode {
     private static final String FEED_RIGHT_NAME = "feedRight";
 
     // Light indicator
-    // private static final String LIGHT_NAME = "shooterLight";
+    private static final String LIGHT_NAME = "shooterLight";
 
     private DcMotorEx fl, fr, bl, br;
     private DcMotorEx shooter;
@@ -31,19 +32,19 @@ public class Two_shooter_test extends OpMode {
     private DcMotorEx shooter2;
 
     private CRServo feedLeft, feedRight;
-    // private Servo shooterLight;
+    private Servo shooterLight;
 
-    // Shooter adjustable power
+     // Shooter adjustable power
     private double shooterPower = 0.6;
 
-    /* Maximum velocity your shooter can reach at full power (adjust based on testing)
+   // Maximum velocity your shooter can reach at full power (adjust based on testing)
     private static final double MAX_VELOCITY = 2360.0; // ticks per second at 100% power
     private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
-     */
 
-    // private long shooterAtSpeedTime = 0;
-   // private boolean wasAtSpeed = false;
-    // private static final long SPEED_STABLE_DURATION = 2000; // milliseconds
+
+     private long shooterAtSpeedTime = 0;
+    private boolean wasAtSpeed = false;
+    private static final long SPEED_STABLE_DURATION = 2000; // milliseconds
 
     // Bumper edge detection
     private boolean lastRightBumper = false;
@@ -69,7 +70,7 @@ public class Two_shooter_test extends OpMode {
         feedRight = hardwareMap.get(CRServo.class, FEED_RIGHT_NAME);
 
         // RGB Indicator Light
-        // shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
+        shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
 
         // Zero power behavior
         fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -87,9 +88,11 @@ public class Two_shooter_test extends OpMode {
         br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // Reset and enable shooter encoder
-        shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shooter2.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
+        shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooter2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         // Motor directions
         fl.setDirection(DcMotor.Direction.REVERSE);
@@ -152,13 +155,17 @@ public class Two_shooter_test extends OpMode {
             shooter2.setPower(shooterPower);
         } else {
             shooter.setPower(0);
+            shooter2.setPower(0);
         }
 
         // ---------- Shooter Speed Light Control ----------
-        /*double targetVelocity = shooterPower * MAX_VELOCITY;
+        double targetVelocity = shooterPower * MAX_VELOCITY;
         double currentVelocity = shooter.getVelocity();
+        double currentVelocity2 = shooter2.getVelocity();
         boolean atSpeed = shooterOn &&
-                Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE;
+                Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE
+                &&
+                Math.abs(currentVelocity2) >= targetVelocity - VELOCITY_TOLERANCE;
 
 // Track how long we've been at speed
         if (atSpeed && !wasAtSpeed) {
@@ -180,8 +187,7 @@ public class Two_shooter_test extends OpMode {
             shooterLight.setPosition(0.30);  // red - shooter on but not at speed yet
         } else {
             shooterLight.setPosition(0.60);  // blue - shooter off
-
-        */
+        }
 
         // ---------- Gecko Feed Servos ----------
         if (gamepad1.y) {
