@@ -27,6 +27,7 @@ public class tagFinder extends OpMode {
     private static final String BR_NAME = "backRight";
 
     private static final String SHOOTER_NAME = "shooter";
+    private static final String SHOOTER2_NAME= "shooter2";
 
     // Gecko feed servos
     private static final String FEED_LEFT_NAME = "feedLeft";
@@ -36,6 +37,8 @@ public class tagFinder extends OpMode {
     private static final String LIGHT_NAME = "shooterLight";
 
     private DcMotorEx shooter;
+
+    private DcMotorEx shooter2;
 
     private Limelight3A limelight;
     private Follower follower;
@@ -82,9 +85,15 @@ public class tagFinder extends OpMode {
 
         // Shooter
         shooter = hardwareMap.get(DcMotorEx.class, SHOOTER_NAME);
+        shooter2 = hardwareMap.get(DcMotorEx.class, SHOOTER2_NAME);
+
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shooter.setDirection(DcMotor.Direction.FORWARD);
 
         shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
@@ -233,8 +242,10 @@ public class tagFinder extends OpMode {
         // Apply shooter state
         if (shooterOn) {
             shooter.setPower(shooterPower);
+            shooter2.setPower(shooterPower);
         } else {
             shooter.setPower(0);
+            shooter2.setPower(0);
         }
 
         // ---------- Gecko Feed Servos ----------
