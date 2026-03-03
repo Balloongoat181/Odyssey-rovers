@@ -161,11 +161,8 @@ public class Two_shooter_test extends OpMode {
         // ---------- Shooter Speed Light Control ----------
         double targetVelocity = shooterPower * MAX_VELOCITY;
         double currentVelocity = shooter.getVelocity();
-        double currentVelocity2 = shooter2.getVelocity();
         boolean atSpeed = shooterOn &&
-                Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE
-                &&
-                Math.abs(currentVelocity2) >= targetVelocity - VELOCITY_TOLERANCE;
+                Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE;
 
 // Track how long we've been at speed
         if (atSpeed && !wasAtSpeed) {
