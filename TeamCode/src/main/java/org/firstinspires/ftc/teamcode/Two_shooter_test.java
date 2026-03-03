@@ -5,10 +5,9 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.Servo;
 
-@TeleOp(name = "Mecanum Drive TeleOp", group = "Drive")
-public class MecanumDriveTeleOp extends OpMode {
+@TeleOp(name = "Two shooter test", group = "Drive")
+public class Two_shooter_test extends OpMode {
 
     private static final String FL_NAME = "frontLeft";
     private static final String FR_NAME = "frontRight";
@@ -16,6 +15,8 @@ public class MecanumDriveTeleOp extends OpMode {
     private static final String BR_NAME = "backRight";
 
     private static final String SHOOTER_NAME = "shooter";
+
+    private static final String SHOOTER2_NAME= "shooter2";
 
     // Gecko feed servos
     private static final String FEED_LEFT_NAME  = "feedLeft";
@@ -27,15 +28,18 @@ public class MecanumDriveTeleOp extends OpMode {
     private DcMotorEx fl, fr, bl, br;
     private DcMotorEx shooter;
 
+    private DcMotorEx shooter2;
+
     private CRServo feedLeft, feedRight;
     // private Servo shooterLight;
 
     // Shooter adjustable power
     private double shooterPower = 0.6;
 
-    // Maximum velocity your shooter can reach at full power (adjust based on testing)
+    /* Maximum velocity your shooter can reach at full power (adjust based on testing)
     private static final double MAX_VELOCITY = 2360.0; // ticks per second at 100% power
     private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
+     */
 
     // private long shooterAtSpeedTime = 0;
    // private boolean wasAtSpeed = false;
@@ -58,6 +62,7 @@ public class MecanumDriveTeleOp extends OpMode {
 
         // Shooter
         shooter = hardwareMap.get(DcMotorEx.class, SHOOTER_NAME);
+        shooter2 = hardwareMap.get(DcMotorEx.class, SHOOTER2_NAME);
 
         // Gecko feed servos
         feedLeft  = hardwareMap.get(CRServo.class, FEED_LEFT_NAME);
@@ -73,6 +78,7 @@ public class MecanumDriveTeleOp extends OpMode {
         br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         // Motor modes
         fl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -82,6 +88,7 @@ public class MecanumDriveTeleOp extends OpMode {
 
         // Reset and enable shooter encoder
         shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
 
         // Motor directions
@@ -91,6 +98,8 @@ public class MecanumDriveTeleOp extends OpMode {
         br.setDirection(DcMotor.Direction.FORWARD);
 
         shooter.setDirection(DcMotor.Direction.FORWARD);
+        shooter2.setDirection(DcMotor.Direction.REVERSE);
+
 
         // Servo directions — adjust if spinning wrong
         feedLeft.setDirection(CRServo.Direction.FORWARD);
@@ -140,6 +149,7 @@ public class MecanumDriveTeleOp extends OpMode {
         // Apply shooter state
         if (shooterOn) {
             shooter.setPower(shooterPower);
+            shooter2.setPower(shooterPower);
         } else {
             shooter.setPower(0);
         }
