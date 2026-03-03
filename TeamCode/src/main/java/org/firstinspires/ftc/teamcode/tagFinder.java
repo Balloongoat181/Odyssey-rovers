@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.math.AbstractBijectiveMap;
+import com.pedropathing.math.MathFunctions; // used for clamp()
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -46,10 +48,19 @@ public class tagFinder extends OpMode {
     private CRServo feedLeft, feedRight;
     private Servo shooterLight;
 
-    // Shooter adjustable power
-    private double shooterPower = 0.6;
+    // Goal positions (field coordinates, inches)
+    private static final Pose BLUE_GOAL = new Pose(15.0, 131.0);
+    private static final Pose RED_GOAL  = new Pose(129.0, 131.0);
 
-    // Maximum velocity your shooter can reach at full power (adjust based on testing)
+    // Distance (inches) → shooter velocity (ticks/sec) interpolation map.
+    // Adjust these values based on testing your specific shooter.
+    private AbstractBijectiveMap.NumericBijectiveMap distVelMap;
+
+    // Manual fine-tune offset applied on top of interpolated velocity (bumpers)
+    private double velocityTrimOffset = 0.0;
+    private static final double TRIM_STEP = 100.0; // ticks/sec per bumper press
+
+    // Maximum velocity your shooter can reach (used for shooter2 power scaling)
     private static final double MAX_VELOCITY = 2360.0; // ticks per second at 100% power
     private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
 
@@ -81,7 +92,7 @@ public class tagFinder extends OpMode {
 
         // Create Pedro Follower
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(new Pose(0, 0, 0));
+        follower.setStartingPose(new Pose(72, 8, Math.toRadians(90)));
 
         // Shooter
         shooter = hardwareMap.get(DcMotorEx.class, SHOOTER_NAME);
@@ -111,6 +122,13 @@ public class tagFinder extends OpMode {
         telemetry.setMsTransmissionInterval(11);
         limelight.pipelineSwitch(0);
         limelight.start();
+
+        // Populate distance → velocity map (distance in inches, velocity in ticks/sec)
+        distVelMap = new AbstractBijectiveMap.NumericBijectiveMap();
+        distVelMap.put(20.0, 1200.0);
+        distVelMap.put(40.0, 1700.0);
+        distVelMap.put(60.0, 2100.0);
+        distVelMap.put(80.0, 2360.0);
 
         telemetry.addLine("Pedro Pathing + Shooter + Feeder Ready");
         telemetry.update();
@@ -197,17 +215,23 @@ public class tagFinder extends OpMode {
 
         follower.update();
 
-        // ---------- Shooter power adjust ----------
-        if (gamepad1.right_bumper && !lastRightBumper) shooterPower += 0.05;
-        if (gamepad1.left_bumper && !lastLeftBumper) shooterPower -= 0.05;
-
-        shooterPower = Math.max(0.0, Math.min(1.0, shooterPower));
+        // ---------- Shooter velocity trim (bumpers fine-tune offset) ----------
+        if (gamepad1.right_bumper && !lastRightBumper) velocityTrimOffset += TRIM_STEP;
+        if (gamepad1.left_bumper && !lastLeftBumper)  velocityTrimOffset -= TRIM_STEP;
 
         lastRightBumper = gamepad1.right_bumper;
-        lastLeftBumper = gamepad1.left_bumper;
+        lastLeftBumper  = gamepad1.left_bumper;
+
+        // ---------- Distance-based target velocity ----------
+        Pose currentPose = follower.getPose();
+        Pose goal = isRedAlliance ? RED_GOAL : BLUE_GOAL;
+        double distanceToGoal = Math.hypot(currentPose.getX() - goal.getX(), currentPose.getY() - goal.getY());
+
+        double targetVelocity = MathFunctions.clamp(
+                getVelocityForDistance(distanceToGoal) + velocityTrimOffset,
+                0, MAX_VELOCITY);
 
         // ---------- Shooter Speed Light Control ----------
-        double targetVelocity = shooterPower * MAX_VELOCITY;
         double currentVelocity = shooter.getVelocity();
         boolean atSpeed = shooterOn &&
                 Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE;
@@ -241,10 +265,10 @@ public class tagFinder extends OpMode {
 
         // Apply shooter state
         if (shooterOn) {
-            shooter.setPower(shooterPower);
-            shooter2.setPower(shooterPower);
+            shooter.setVelocity(targetVelocity);
+            shooter2.setPower(targetVelocity / MAX_VELOCITY); // no encoder, scale to 0-1
         } else {
-            shooter.setPower(0);
+            shooter.setVelocity(0);
             shooter2.setPower(0);
         }
 
@@ -267,7 +291,10 @@ public class tagFinder extends OpMode {
         telemetry.addData("Y pressed", gamepad1.y);
         telemetry.addData("X pressed", gamepad1.x);
         telemetry.addData("Shooter On", shooterOn);
-        telemetry.addData("Shooter Power", shooterPower);
+        telemetry.addData("Distance to Goal (in)", String.format("%.1f", distanceToGoal));
+        telemetry.addData("Target Velocity (t/s)", String.format("%.0f", targetVelocity));
+        telemetry.addData("Current Velocity (t/s)", String.format("%.0f", currentVelocity));
+        telemetry.addData("Velocity Trim Offset", velocityTrimOffset);
         telemetry.addData("Feeder L Power", feedLeft.getPower());
         telemetry.addData("Feeder R Power", feedRight.getPower());
 
@@ -303,5 +330,14 @@ public class tagFinder extends OpMode {
         }
 
         telemetry.update();
+    }
+
+    /**
+     * Interpolates shooter velocity from the distVelMap using Pedro Pathing's
+     * NumericBijectiveMap.interpolateKey(). Automatically clamps to map bounds
+     * when distance is outside the defined range.
+     */
+    private double getVelocityForDistance(double distance) {
+        return distVelMap.interpolateKey(distance);
     }
 }
