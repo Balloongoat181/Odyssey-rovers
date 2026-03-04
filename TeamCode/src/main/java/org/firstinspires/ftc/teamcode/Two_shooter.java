@@ -17,7 +17,11 @@ public class Two_shooter extends OpMode {
     public static double I = 0.0;
     public static double D = 21.5;
     public static double F = 15.3; // Your current feed-forward
-    private double shooterVelocity = 1300; // FIXED: typo was "shooterVeloicty"
+    private double shooterVelocity = 1300;
+
+    // FEEDER TIMING - TUNABLE VIA CONFIG PANEL
+    public static long FEED_PULSE_MS = 150;      // How long each shot feeds for
+    public static long FEED_COOLDOWN_MS = 300;   // Delay between shots
 
 
     private static final String FL_NAME = "frontLeft";
@@ -44,8 +48,6 @@ public class Two_shooter extends OpMode {
     private CRServo feedLeft, feedRight;
     private Servo shooterLight;
 
-    // Shooter adjustable power
-
     // Maximum velocity your shooter can reach at full power (adjust based on testing)
     private static final double MAX_VELOCITY = 2800; // ticks per second at 100% power
     private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
@@ -56,10 +58,15 @@ public class Two_shooter extends OpMode {
 
     boolean shooterOn = false;
 
-    // Feeder state machine timing
-    private long feederStartTime = 0;
-    private static final long FEED_DURATION_MS = 150;
-    private boolean isFeedingForward = false;
+    // Feeder state machine
+    private enum FeederState {
+        IDLE,       // Waiting for input
+        FEEDING,    // Actively feeding (servo running)
+        COOLDOWN    // Waiting between shots
+    }
+
+    private FeederState feederState = FeederState.IDLE;
+    private long feederStateStartTime = 0;
 
     @Override
     public void init() {
@@ -173,57 +180,87 @@ public class Two_shooter extends OpMode {
         double targetVelocity = shooterVelocity;
         double currentVelocity = shooter.getVelocity();
 
-        // FIXED: Velocity must be within tolerance on BOTH sides (upper and lower bounds)
+        // Velocity must be within tolerance on BOTH sides (upper and lower bounds)
         boolean atSpeed = shooterOn &&
                 Math.abs(currentVelocity) >= (targetVelocity - VELOCITY_TOLERANCE) &&
                 Math.abs(currentVelocity) <= (targetVelocity + VELOCITY_TOLERANCE);
 
         // Set light color based on state
         if (atSpeed) {
-            shooterLight.setPosition(0.42);  // green - stable at speed for 2 seconds
+            shooterLight.setPosition(0.42);  // green - stable at speed
         } else if (shooterOn) {
             shooterLight.setPosition(0.30);  // red - shooter on but not at speed yet
         } else {
             shooterLight.setPosition(0.60);  // blue - shooter off
         }
 
-        // ---------- Gecko Feed Servos (Non-blocking state machine) ----------
-        // FIXED: Removed blocking sleep() call; replaced with timer-based approach
+        // ---------- Gecko Feed Servos (Hold Y for continuous fire with delays) ----------
         long currentTime = System.currentTimeMillis();
+        long elapsedTime = currentTime - feederStateStartTime;
 
-        // If a forward feed is active and time has elapsed, stop it
-        if (isFeedingForward && (currentTime >= FEED_DURATION_MS)) {
-            isFeedingForward = false;
-            feedLeft.setPower(0);
-            feedRight.setPower(0);
-        }
+        // STATE MACHINE for feeder
+        switch (feederState) {
+            case IDLE:
+                // Waiting for input
+                feedLeft.setPower(0);
+                feedRight.setPower(0);
 
-        if (gamepad1.y) {
-            // Start forward feed
-            feedLeft.setPower(1.0);
-            feedRight.setPower(-1.0);
-            feederStartTime = currentTime;
-            isFeedingForward = true;
-        }
-        else if (gamepad1.x) {
-            // Reverse feed (Xbox/Logitech X button)
-            feedLeft.setPower(-1.0);
-            feedRight.setPower(1.0);
-            isFeedingForward = false;
-        }
-        else if (!isFeedingForward) {
-            // Only stop if not in the middle of a timed forward feed
-            feedLeft.setPower(0);
-            feedRight.setPower(0);
+                if (gamepad1.y) {
+                    // User pressed Y - start feeding
+                    feederState = FeederState.FEEDING;
+                    feederStateStartTime = currentTime;
+                }
+                else if (gamepad1.x) {
+                    // Reverse feed (continuous while held)
+                    feedLeft.setPower(-1.0);
+                    feedRight.setPower(1.0);
+                }
+                break;
+
+            case FEEDING:
+                // Currently feeding - run servos for pulse duration
+                feedLeft.setPower(1.0);
+                feedRight.setPower(-1.0);
+
+                if (elapsedTime >= FEED_PULSE_MS) {
+                    // Pulse complete - go to cooldown
+                    feederState = FeederState.COOLDOWN;
+                    feederStateStartTime = currentTime;
+                }
+
+                // If user released Y, stop immediately
+                if (!gamepad1.y) {
+                    feederState = FeederState.IDLE;
+                }
+                break;
+
+            case COOLDOWN:
+                // Waiting between shots - servos off
+                feedLeft.setPower(0);
+                feedRight.setPower(0);
+
+                if (!gamepad1.y) {
+                    // User released Y - return to idle
+                    feederState = FeederState.IDLE;
+                }
+                else if (elapsedTime >= FEED_COOLDOWN_MS) {
+                    // Cooldown complete - fire again if Y still held
+                    feederState = FeederState.FEEDING;
+                    feederStateStartTime = currentTime;
+                }
+                break;
         }
 
         // ---------- Debug Telemetry ----------
         telemetry.addData("Y pressed", gamepad1.y);
         telemetry.addData("X pressed", gamepad1.x);
         telemetry.addData("Shooter On", shooterOn);
-        telemetry.addData("Set Velocity", shooterVelocity); // FIXED: typo
-        telemetry.addData("Velocity", shooter.getVelocity()); // FIXED: typo
+        telemetry.addData("Set Velocity", shooterVelocity);
+        telemetry.addData("Current Velocity", shooter.getVelocity());
         telemetry.addData("At Speed", atSpeed);
+        telemetry.addData("Feeder State", feederState.toString());
+        telemetry.addData("Feed Pulse MS", FEED_PULSE_MS);
+        telemetry.addData("Cooldown MS", FEED_COOLDOWN_MS);
         telemetry.addData("Feeder L Power", feedLeft.getPower());
         telemetry.addData("Feeder R Power", feedRight.getPower());
         telemetry.update();
