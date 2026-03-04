@@ -104,6 +104,9 @@ public class tagFinder extends OpMode {
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
+        // Velocity PIDF — F = 32767 / MAX_VELOCITY, tune P if response is sluggish
+        shooter.setVelocityPIDFCoefficients(20, 0, 0, 32767.0 / MAX_VELOCITY);
+
         shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shooter.setDirection(DcMotor.Direction.FORWARD);
 
