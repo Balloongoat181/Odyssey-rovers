@@ -1,6 +1,7 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -8,8 +9,17 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.Servo;
 
+@Configurable
 @TeleOp(name = "Two shooter test", group = "Drive")
 public class Two_shooter extends OpMode {
+
+    // PANELS WILL SEE THESE SLIDERS NOW
+    public static double P = 0.0;
+    public static double I = 0.0;
+    public static double D = 0.0;
+    public static double F = 3.0; // Your current feed-forward
+    private double shooterVeloicty = 1500;
+
 
     private static final String FL_NAME = "frontLeft";
     private static final String FR_NAME = "frontRight";
@@ -36,7 +46,6 @@ public class Two_shooter extends OpMode {
     private Servo shooterLight;
 
     // Shooter adjustable power
-    private double shooterVeloicty = 1500;
 
     // Maximum velocity your shooter can reach at full power (adjust based on testing)
     private static final double MAX_VELOCITY = 2800; // ticks per second at 100% power
@@ -93,7 +102,7 @@ public class Two_shooter extends OpMode {
         shooter.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
         shooter2.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
 
-        shooter.setVelocityPIDFCoefficients(0,0,0,3);
+        shooter.setVelocityPIDFCoefficients(P, I, D, F);
 
         // Motor directions
         fl.setDirection(DcMotor.Direction.REVERSE);
@@ -115,6 +124,7 @@ public class Two_shooter extends OpMode {
 
     @Override
     public void loop() {
+        shooter.setVelocityPIDFCoefficients(P, I, D, F);
 
         // ---------- Drivetrain ----------
         double y  = -gamepad1.left_stick_y;
