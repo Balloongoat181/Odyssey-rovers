@@ -42,7 +42,6 @@ public class Two_shooter extends OpMode {
     private static final double MAX_VELOCITY = 2800; // ticks per second at 100% power
     private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
 
-
     private long shooterAtSpeedTime = 0;
     private boolean wasAtSpeed = false;
     private static final long SPEED_STABLE_DURATION = 2000; // milliseconds
@@ -91,8 +90,10 @@ public class Two_shooter extends OpMode {
         // Reset and enable shooter encoder
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooter.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
+        shooter2.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
+
+        shooter.setVelocityPIDFCoefficients(0,0,0,3);
 
         // Motor directions
         fl.setDirection(DcMotor.Direction.REVERSE);
@@ -207,7 +208,8 @@ public class Two_shooter extends OpMode {
         telemetry.addData("Y pressed", gamepad1.y);
         telemetry.addData("X pressed", gamepad1.x);
         telemetry.addData("Shooter On", shooterOn);
-        telemetry.addData("Shooter Power", shooterVeloicty);
+        telemetry.addData("Set Veloicty", shooterVeloicty);
+        telemetry.addData("Veloicty", shooter.getVelocity());
         //telemetry.addData("Target Velocity", targetVelocity);
         //telemetry.addData("Current Velocity", currentVelocity);
         //telemetry.addData("At Speed", atSpeed);
