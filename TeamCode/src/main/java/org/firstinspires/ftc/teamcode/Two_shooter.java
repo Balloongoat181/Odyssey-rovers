@@ -22,7 +22,7 @@ public class Two_shooter extends OpMode {
     // FEEDER TIMING - TUNABLE VIA CONFIG PANEL
     public static long FEED_PULSE_MS = 150;      // How long each shot feeds for
     public static long FEED_COOLDOWN_MS = 300;   // Delay between shots
-
+    public static long STABLE_SPEED = 500;
 
     private static final String FL_NAME = "frontLeft";
     private static final String FR_NAME = "frontRight";
@@ -175,6 +175,8 @@ public class Two_shooter extends OpMode {
             shooter.setVelocity(0);
             shooter2.setPower(0);
         }
+
+
 
         // ---------- Shooter Speed Light Control ----------
         double targetVelocity = shooterVelocity;

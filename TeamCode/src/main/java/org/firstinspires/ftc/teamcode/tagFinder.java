@@ -44,8 +44,8 @@ public class tagFinder extends OpMode {
     private Servo shooterLight;
 
     // Goal positions (field coordinates, inches)
-    private static final Pose BLUE_GOAL = new Pose(15.0, 131.0);
-    private static final Pose RED_GOAL  = new Pose(129.0, 131.0);
+    private static final Pose BLUE_GOAL = new Pose(37.0, 129.0);
+    private static final Pose RED_GOAL  = new Pose(134.0, 116.0);
 
     // Distance (inches) → shooter velocity (ticks/sec) interpolation map.
     // Adjust these values based on testing your specific shooter.
