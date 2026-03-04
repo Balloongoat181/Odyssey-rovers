@@ -100,10 +100,11 @@ public class tagFinder extends OpMode {
         shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         // Velocity PIDF — F = 32767 / MAX_VELOCITY, tune P if response is sluggish
-        shooter.setVelocityPIDFCoefficients(20, 0, 0, 32767.0 / MAX_VELOCITY);
+        // shooter.setVelocityPIDFCoefficients(20, 0, 0, 32767.0 / MAX_VELOCITY);
 
         shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shooter.setDirection(DcMotor.Direction.FORWARD);
+        shooter2.setDirection(DcMotor.Direction.REVERSE);
 
         shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
 

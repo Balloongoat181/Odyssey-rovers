@@ -14,11 +14,11 @@ import com.qualcomm.robotcore.hardware.Servo;
 public class Two_shooter extends OpMode {
 
     // PANELS WILL SEE THESE SLIDERS NOW
-    public static double P = 25;
+    public static double P = 23;
     public static double I = 0.0;
-    public static double D = 12.5;
-    public static double F = 16.5; // Your current feed-forward
-    private double shooterVeloicty = 1500;
+    public static double D = 21.5;
+    public static double F = 15.3; // Your current feed-forward
+    private double shooterVeloicty = 1300;
 
 
     private static final String FL_NAME = "frontLeft";
