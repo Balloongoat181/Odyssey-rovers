@@ -23,11 +23,6 @@ import java.util.List;
 @TeleOp(name = "tag finder", group = "Drive")
 public class tagFinder extends OpMode {
 
-    private static final String FL_NAME = "frontLeft";
-    private static final String FR_NAME = "frontRight";
-    private static final String BL_NAME = "backLeft";
-    private static final String BR_NAME = "backRight";
-
     private static final String SHOOTER_NAME = "shooter";
     private static final String SHOOTER2_NAME= "shooter2";
 
