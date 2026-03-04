@@ -224,7 +224,7 @@ public class tagFinder extends OpMode {
         // ---------- Distance-based target velocity ----------
         Pose currentPose = follower.getPose();
         Pose goal = isRedAlliance ? RED_GOAL : BLUE_GOAL;
-        double distanceToGoal = Math.max(0, Math.hypot(currentPose.getX() - goal.getX(), currentPose.getY() - goal.getY()) - 20.0);
+        double distanceToGoal = Math.max(0, Math.hypot(currentPose.getX() - goal.getX(), currentPose.getY() - goal.getY()) - 15.0);
 
         double targetVelocity = MathFunctions.clamp(
                 getVelocityForDistance(distanceToGoal) + velocityTrimOffset,
