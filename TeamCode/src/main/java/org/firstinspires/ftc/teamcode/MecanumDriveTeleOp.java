@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode;
+/* package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -145,7 +145,7 @@ public class MecanumDriveTeleOp extends OpMode {
         }
 
         // ---------- Shooter Speed Light Control ----------
-        /*double targetVelocity = shooterPower * MAX_VELOCITY;
+        double targetVelocity = shooterPower * MAX_VELOCITY;
         double currentVelocity = shooter.getVelocity();
         boolean atSpeed = shooterOn &&
                 Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE;
@@ -171,7 +171,7 @@ public class MecanumDriveTeleOp extends OpMode {
         } else {
             shooterLight.setPosition(0.60);  // blue - shooter off
 
-        */
+
 
         // ---------- Gecko Feed Servos ----------
         if (gamepad1.y) {
@@ -203,3 +203,6 @@ public class MecanumDriveTeleOp extends OpMode {
         telemetry.update();
     }
 }
+
+
+ */
