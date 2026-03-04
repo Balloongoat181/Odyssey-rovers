@@ -14,10 +14,10 @@ import com.qualcomm.robotcore.hardware.Servo;
 public class Two_shooter extends OpMode {
 
     // PANELS WILL SEE THESE SLIDERS NOW
-    public static double P = 0.0;
+    public static double P = 25;
     public static double I = 0.0;
-    public static double D = 0.0;
-    public static double F = 3.0; // Your current feed-forward
+    public static double D = 12.5;
+    public static double F = 16.5; // Your current feed-forward
     private double shooterVeloicty = 1500;
 
 
@@ -50,10 +50,6 @@ public class Two_shooter extends OpMode {
     // Maximum velocity your shooter can reach at full power (adjust based on testing)
     private static final double MAX_VELOCITY = 2800; // ticks per second at 100% power
     private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
-
-    private long shooterAtSpeedTime = 0;
-    private boolean wasAtSpeed = false;
-    private static final long SPEED_STABLE_DURATION = 2000; // milliseconds
 
     // Bumper edge detection
     private boolean lastRightBumper = false;
@@ -147,8 +143,8 @@ public class Two_shooter extends OpMode {
         br.setPower(brPower / max);
 
         // ---------- Shooter power adjust ----------
-        if (gamepad1.right_bumper && !lastRightBumper) shooterVeloicty += 100;
-        if (gamepad1.left_bumper && !lastLeftBumper) shooterVeloicty -= 100;
+        if (gamepad1.right_bumper && !lastRightBumper) shooterVeloicty += 50;
+        if (gamepad1.left_bumper && !lastLeftBumper) shooterVeloicty -= 50;
 
         shooterVeloicty = Math.max(0.0, Math.min(MAX_VELOCITY, shooterVeloicty));
 
@@ -175,21 +171,10 @@ public class Two_shooter extends OpMode {
         boolean atSpeed = shooterOn &&
                 Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE;
 
-// Track how long we've been at speed
-        if (atSpeed && !wasAtSpeed) {
-            // Just reached speed - start timer
-            shooterAtSpeedTime = System.currentTimeMillis();
-        }
 
-        if (!atSpeed) {
-            // Reset timer when not at speed
-            shooterAtSpeedTime = 0;
-        }
-
-        wasAtSpeed = atSpeed;
 
 // Set light color based on state
-        if (atSpeed && (System.currentTimeMillis() - shooterAtSpeedTime >= SPEED_STABLE_DURATION)) {
+        if (atSpeed) {
             shooterLight.setPosition(0.42);  // green - stable at speed for 2 seconds
         } else if (shooterOn) {
             shooterLight.setPosition(0.30);  // red - shooter on but not at speed yet
