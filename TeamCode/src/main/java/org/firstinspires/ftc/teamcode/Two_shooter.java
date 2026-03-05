@@ -12,57 +12,71 @@ import com.qualcomm.robotcore.hardware.Servo;
 @TeleOp(name = "Two shooter test", group = "Drive")
 public class Two_shooter extends OpMode {
 
-    // PANELS WILL SEE THESE SLIDERS NOW
-    public static double P = 23;
-    public static double I = 0.0;
-    public static double D = 21.5;
-    public static double F = 15.3; // Your current feed-forward
-    private double shooterVelocity = 1300;
+    // ========== NESTED CONFIG GROUPS ==========
+    @Configurable
+    public static class ShooterPID {
+        public static double P = 23;
+        public static double I = 0.0;
+        public static double D = 21.5;
+        public static double F = 15.3;  // Feed-forward
+    }
 
-    // FEEDER TIMING - TUNABLE VIA CONFIG PANEL
-    public static long FEED_PULSE_MS = 150;      // How long each shot feeds for
-    public static long FEED_COOLDOWN_MS = 300;   // Delay between shots
-    public static long STABLE_SPEED = 500;
+    @Configurable
+    public static class ShooterControl {
+        public static double initialVelocity = 1300;
+        public static double maxVelocity = 2800;
+        public static double velocityTolerance = 100.0;
+        public static double velocityIncrement = 50;
+    }
 
+    @Configurable
+    public static class FeederTiming {
+        public static long feedPulseMS = 150;        // How long each shot feeds for
+        public static long feedCooldownMS = 300;     // Delay between shots
+    }
+
+    @Configurable
+    public static class LightIndicator {
+        public static double greenPosition = 0.42;   // At speed
+        public static double redPosition = 0.30;     // Spinning up
+        public static double bluePosition = 0.60;    // Off
+    }
+
+    // ========== HARDWARE NAMES ==========
     private static final String FL_NAME = "frontLeft";
     private static final String FR_NAME = "frontRight";
     private static final String BL_NAME = "backLeft";
     private static final String BR_NAME = "backRight";
 
     private static final String SHOOTER_NAME = "shooter";
+    private static final String SHOOTER2_NAME = "shooter2";
 
-    private static final String SHOOTER2_NAME= "shooter2";
-
-    // Gecko feed servos
-    private static final String FEED_LEFT_NAME  = "feedLeft";
+    private static final String FEED_LEFT_NAME = "feedLeft";
     private static final String FEED_RIGHT_NAME = "feedRight";
 
-    // Light indicator
     private static final String LIGHT_NAME = "shooterLight";
 
+    // ========== MOTOR/SERVO INSTANCES ==========
     private DcMotorEx fl, fr, bl, br;
     private DcMotorEx shooter;
-
     private DcMotorEx shooter2;
 
     private CRServo feedLeft, feedRight;
     private Servo shooterLight;
 
-    // Maximum velocity your shooter can reach at full power (adjust based on testing)
-    private static final double MAX_VELOCITY = 2800; // ticks per second at 100% power
-    private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
+    // ========== RUNTIME VARIABLES ==========
+    private double shooterVelocity;
+    private boolean shooterOn = false;
 
     // Bumper edge detection
     private boolean lastRightBumper = false;
     private boolean lastLeftBumper = false;
 
-    boolean shooterOn = false;
-
     // Feeder state machine
     private enum FeederState {
-        IDLE,       // Waiting for input
-        FEEDING,    // Actively feeding (servo running)
-        COOLDOWN    // Waiting between shots
+        IDLE,
+        FEEDING,
+        COOLDOWN
     }
 
     private FeederState feederState = FeederState.IDLE;
@@ -70,25 +84,30 @@ public class Two_shooter extends OpMode {
 
     @Override
     public void init() {
+        // Initialize shooter velocity from config
+        shooterVelocity = ShooterControl.initialVelocity;
 
-        // Drivetrain
+        // Initialize timer
+        feederStateStartTime = System.currentTimeMillis();
+
+        // ========== DRIVETRAIN ==========
         fl = hardwareMap.get(DcMotorEx.class, FL_NAME);
         fr = hardwareMap.get(DcMotorEx.class, FR_NAME);
         bl = hardwareMap.get(DcMotorEx.class, BL_NAME);
         br = hardwareMap.get(DcMotorEx.class, BR_NAME);
 
-        // Shooter
+        // ========== SHOOTER ==========
         shooter = hardwareMap.get(DcMotorEx.class, SHOOTER_NAME);
         shooter2 = hardwareMap.get(DcMotorEx.class, SHOOTER2_NAME);
 
-        // Gecko feed servos
-        feedLeft  = hardwareMap.get(CRServo.class, FEED_LEFT_NAME);
+        // ========== FEEDER SERVOS ==========
+        feedLeft = hardwareMap.get(CRServo.class, FEED_LEFT_NAME);
         feedRight = hardwareMap.get(CRServo.class, FEED_RIGHT_NAME);
 
-        // RGB Indicator Light
+        // ========== LIGHT INDICATOR ==========
         shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
 
-        // Zero power behavior
+        // ========== ZERO POWER BEHAVIOR ==========
         fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -97,21 +116,20 @@ public class Two_shooter extends OpMode {
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        // Motor modes
+        // ========== MOTOR MODES ==========
         fl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         fr.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         bl.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         br.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        // Reset and enable shooter encoder
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
         shooter.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
         shooter2.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
 
-        shooter.setVelocityPIDFCoefficients(P, I, D, F);
+        // ========== PIDF COEFFICIENTS ==========
+        shooter.setVelocityPIDFCoefficients(ShooterPID.P, ShooterPID.I, ShooterPID.D, ShooterPID.F);
 
-        // Motor directions
+        // ========== MOTOR DIRECTIONS ==========
         fl.setDirection(DcMotor.Direction.REVERSE);
         bl.setDirection(DcMotor.Direction.REVERSE);
         fr.setDirection(DcMotor.Direction.FORWARD);
@@ -120,8 +138,7 @@ public class Two_shooter extends OpMode {
         shooter.setDirection(DcMotor.Direction.FORWARD);
         shooter2.setDirection(DcMotor.Direction.REVERSE);
 
-
-        // Servo directions — adjust if spinning wrong
+        // ========== SERVO DIRECTIONS ==========
         feedLeft.setDirection(CRServo.Direction.FORWARD);
         feedRight.setDirection(CRServo.Direction.FORWARD);
 
@@ -131,12 +148,13 @@ public class Two_shooter extends OpMode {
 
     @Override
     public void loop() {
-        shooter.setVelocityPIDFCoefficients(P, I, D, F);
+        // Update PIDF coefficients from config
+        shooter.setVelocityPIDFCoefficients(ShooterPID.P, ShooterPID.I, ShooterPID.D, ShooterPID.F);
 
-        // ---------- Drivetrain ----------
-        double y  = -gamepad1.left_stick_y;
-        double x  =  gamepad1.left_stick_x;
-        double rx =  gamepad1.right_stick_x;
+        // ---------- DRIVETRAIN ----------
+        double y = -gamepad1.left_stick_y;
+        double x = gamepad1.left_stick_x;
+        double rx = gamepad1.right_stick_x;
 
         double flPower = y + x + rx;
         double frPower = y - x - rx;
@@ -153,16 +171,20 @@ public class Two_shooter extends OpMode {
         bl.setPower(blPower / max);
         br.setPower(brPower / max);
 
-        // ---------- Shooter power adjust ----------
-        if (gamepad1.right_bumper && !lastRightBumper) shooterVelocity += 50;
-        if (gamepad1.left_bumper && !lastLeftBumper) shooterVelocity -= 50;
+        // ---------- SHOOTER VELOCITY ADJUST ----------
+        if (gamepad1.right_bumper && !lastRightBumper) {
+            shooterVelocity += ShooterControl.velocityIncrement;
+        }
+        if (gamepad1.left_bumper && !lastLeftBumper) {
+            shooterVelocity -= ShooterControl.velocityIncrement;
+        }
 
-        shooterVelocity = Math.max(0.0, Math.min(MAX_VELOCITY, shooterVelocity));
+        shooterVelocity = Math.max(0.0, Math.min(ShooterControl.maxVelocity, shooterVelocity));
 
         lastRightBumper = gamepad1.right_bumper;
         lastLeftBumper = gamepad1.left_bumper;
 
-        // Toggle shooter
+        // Toggle shooter on/off
         if (gamepad1.bWasPressed()) {
             shooterOn = !shooterOn;
         }
@@ -170,90 +192,73 @@ public class Two_shooter extends OpMode {
         // Apply shooter state
         if (shooterOn) {
             shooter.setVelocity(shooterVelocity);
-            shooter2.setPower(shooterVelocity/MAX_VELOCITY);
+            shooter2.setPower(shooterVelocity / ShooterControl.maxVelocity);
         } else {
             shooter.setVelocity(0);
             shooter2.setPower(0);
         }
 
-
-
-        // ---------- Shooter Speed Light Control ----------
-        double targetVelocity = shooterVelocity;
+        // ---------- SHOOTER SPEED LIGHT CONTROL ----------
         double currentVelocity = shooter.getVelocity();
-
-        // Velocity must be within tolerance on BOTH sides (upper and lower bounds)
         boolean atSpeed = shooterOn &&
-                Math.abs(currentVelocity) >= (targetVelocity - VELOCITY_TOLERANCE) &&
-                Math.abs(currentVelocity) <= (targetVelocity + VELOCITY_TOLERANCE);
+                Math.abs(currentVelocity) >= (shooterVelocity - ShooterControl.velocityTolerance) &&
+                Math.abs(currentVelocity) <= (shooterVelocity + ShooterControl.velocityTolerance);
 
-        // Set light color based on state
         if (atSpeed) {
-            shooterLight.setPosition(0.42);  // green - stable at speed
+            shooterLight.setPosition(LightIndicator.greenPosition);
         } else if (shooterOn) {
-            shooterLight.setPosition(0.30);  // red - shooter on but not at speed yet
+            shooterLight.setPosition(LightIndicator.redPosition);
         } else {
-            shooterLight.setPosition(0.60);  // blue - shooter off
+            shooterLight.setPosition(LightIndicator.bluePosition);
         }
 
-        // ---------- Gecko Feed Servos (Hold Y for continuous fire with delays) ----------
+        // ---------- FEEDER STATE MACHINE (Hold Y to fire) ----------
         long currentTime = System.currentTimeMillis();
         long elapsedTime = currentTime - feederStateStartTime;
 
-        // STATE MACHINE for feeder
         switch (feederState) {
             case IDLE:
-                // Waiting for input
                 feedLeft.setPower(0);
                 feedRight.setPower(0);
 
                 if (gamepad1.y) {
-                    // User pressed Y - start feeding
                     feederState = FeederState.FEEDING;
                     feederStateStartTime = currentTime;
-                }
-                else if (gamepad1.x) {
-                    // Reverse feed (continuous while held)
+                } else if (gamepad1.x) {
+                    // Reverse feed
                     feedLeft.setPower(-1.0);
                     feedRight.setPower(1.0);
                 }
                 break;
 
             case FEEDING:
-                // Currently feeding - run servos for pulse duration
                 feedLeft.setPower(1.0);
                 feedRight.setPower(-1.0);
 
-                if (elapsedTime >= FEED_PULSE_MS) {
-                    // Pulse complete - go to cooldown
+                if (elapsedTime >= FeederTiming.feedPulseMS) {
                     feederState = FeederState.COOLDOWN;
                     feederStateStartTime = currentTime;
                 }
 
-                // If user released Y, stop immediately
                 if (!gamepad1.y) {
                     feederState = FeederState.IDLE;
                 }
                 break;
 
             case COOLDOWN:
-                // Waiting between shots - servos off
                 feedLeft.setPower(0);
                 feedRight.setPower(0);
 
                 if (!gamepad1.y) {
-                    // User released Y - return to idle
                     feederState = FeederState.IDLE;
-                }
-                else if (elapsedTime >= FEED_COOLDOWN_MS) {
-                    // Cooldown complete - fire again if Y still held
+                } else if (elapsedTime >= FeederTiming.feedCooldownMS) {
                     feederState = FeederState.FEEDING;
                     feederStateStartTime = currentTime;
                 }
                 break;
         }
 
-        // ---------- Debug Telemetry ----------
+        // ---------- DEBUG TELEMETRY ----------
         telemetry.addData("Y pressed", gamepad1.y);
         telemetry.addData("X pressed", gamepad1.x);
         telemetry.addData("Shooter On", shooterOn);
@@ -261,8 +266,6 @@ public class Two_shooter extends OpMode {
         telemetry.addData("Current Velocity", shooter.getVelocity());
         telemetry.addData("At Speed", atSpeed);
         telemetry.addData("Feeder State", feederState.toString());
-        telemetry.addData("Feed Pulse MS", FEED_PULSE_MS);
-        telemetry.addData("Cooldown MS", FEED_COOLDOWN_MS);
         telemetry.addData("Feeder L Power", feedLeft.getPower());
         telemetry.addData("Feeder R Power", feedRight.getPower());
         telemetry.update();

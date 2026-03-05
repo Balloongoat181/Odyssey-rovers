@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.AbstractBijectiveMap;
 import com.pedropathing.math.MathFunctions; // used for clamp()
@@ -20,21 +21,68 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.List;
 
+@Configurable
 @TeleOp(name = "tag finder", group = "Drive")
 public class tagFinder extends OpMode {
 
-    private static final String SHOOTER_NAME = "shooter";
-    private static final String SHOOTER2_NAME= "shooter2";
+    // ========== NESTED CONFIG GROUPS ==========
+    @Configurable
+    public static class ShooterPID {
+        public static double P = 23;
+        public static double I = 0.0;
+        public static double D = 21.5;
+        public static double F = 15.3;  // Feed-forward
+    }
 
-    // Gecko feed servos
+    @Configurable
+    public static class ShooterControl {
+        public static double maxVelocity = 2360.0;
+        public static double velocityTolerance = 100.0;
+        public static double trimStep = 100.0;
+    }
+
+    @Configurable
+    public static class FeederTiming {
+        public static long feedPulseMS = 150;        // How long each shot feeds for
+        public static long feedCooldownMS = 500;     // Delay between shots
+    }
+
+    @Configurable
+    public static class LightIndicator {
+        public static double greenPosition = 0.42;   // At speed (stable for 2 sec)
+        public static double redPosition = 0.30;     // Spinning up
+        public static double bluePosition = 0.60;    // Off
+    }
+
+    @Configurable
+    public static class DistanceVelocityMap {
+        public static double distance1 = 20.0;
+        public static double velocity1 = 1200.0;
+        public static double distance2 = 40.0;
+        public static double velocity2 = 1700.0;
+        public static double distance3 = 60.0;
+        public static double velocity3 = 2100.0;
+        public static double distance4 = 80.0;
+        public static double velocity4 = 2360.0;
+    }
+
+    @Configurable
+    public static class TagAlignmentControl {
+        public static double alignmentDeadbandDeg = 0.7;
+        public static double headingPID_P = 0.02;  // Tune rotation response
+    }
+
+    // ========== HARDWARE NAMES ==========
+    private static final String SHOOTER_NAME = "shooter";
+    private static final String SHOOTER2_NAME = "shooter2";
+
     private static final String FEED_LEFT_NAME = "feedLeft";
     private static final String FEED_RIGHT_NAME = "feedRight";
 
-    // Light indicator
     private static final String LIGHT_NAME = "shooterLight";
 
+    // ========== MOTOR/SERVO INSTANCES ==========
     private DcMotorEx shooter;
-
     private DcMotorEx shooter2;
 
     private Limelight3A limelight;
@@ -43,21 +91,13 @@ public class tagFinder extends OpMode {
     private CRServo feedLeft, feedRight;
     private Servo shooterLight;
 
-    // Goal positions (field coordinates, inches)
-    private static final Pose BLUE_GOAL = new Pose(37.0, 129.0);
-    private static final Pose RED_GOAL  = new Pose(134.0, 116.0);
+    // ========== GOAL POSITIONS ==========
+    private static final Pose BLUE_GOAL = new Pose(24.0, 123.0);
+    private static final Pose RED_GOAL = new Pose(122.0, 123.0);
 
-    // Distance (inches) → shooter velocity (ticks/sec) interpolation map.
-    // Adjust these values based on testing your specific shooter.
+    // ========== SHOOTER VARIABLES ==========
     private AbstractBijectiveMap.NumericBijectiveMap distVelMap;
-
-    // Manual fine-tune offset applied on top of interpolated velocity (bumpers)
     private double velocityTrimOffset = 0.0;
-    private static final double TRIM_STEP = 100.0; // ticks/sec per bumper press
-
-    // Maximum velocity your shooter can reach (used for shooter2 power scaling)
-    private static final double MAX_VELOCITY = 2360.0; // ticks per second at 100% power
-    private static final double VELOCITY_TOLERANCE = 100.0; // tolerance range
 
     private long shooterAtSpeedTime = 0;
     private boolean wasAtSpeed = false;
@@ -69,7 +109,17 @@ public class tagFinder extends OpMode {
 
     boolean shooterOn = false;
 
-    // Tag alignment control
+    // ========== FEEDER STATE MACHINE ==========
+    private enum FeederState {
+        IDLE,
+        FEEDING,
+        COOLDOWN
+    }
+
+    private FeederState feederState = FeederState.IDLE;
+    private long feederStateStartTime = 0;
+
+    // ========== TAG ALIGNMENT VARIABLES ==========
     private boolean alignmentActive = false;
     private double targetHeading = 0;
 
@@ -79,17 +129,17 @@ public class tagFinder extends OpMode {
     private static final int RED_TAG_ID = 24;
     private static final int BLUE_TAG_ID = 20;
 
-    // Deadband: don't rotate if the tag is within this many degrees of center
-    private static final double ALIGNMENT_DEADBAND_DEG = 0.7;
-
     @Override
     public void init() {
+
+        // Initialize feeder timer
+        feederStateStartTime = System.currentTimeMillis();
 
         // Create Pedro Follower
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(new Pose(72, 8, Math.toRadians(90)));
 
-        // Shooter
+        // ========== SHOOTER ==========
         shooter = hardwareMap.get(DcMotorEx.class, SHOOTER_NAME);
         shooter2 = hardwareMap.get(DcMotorEx.class, SHOOTER2_NAME);
 
@@ -97,39 +147,40 @@ public class tagFinder extends OpMode {
         shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooter.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
 
-        // Velocity PIDF — F = 32767 / MAX_VELOCITY, tune P if response is sluggish
-        // shooter.setVelocityPIDFCoefficients(20, 0, 0, 32767.0 / MAX_VELOCITY);
+        // Set PIDF coefficients from config group
+        shooter.setVelocityPIDFCoefficients(ShooterPID.P, ShooterPID.I, ShooterPID.D, ShooterPID.F);
 
         shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shooter.setDirection(DcMotor.Direction.FORWARD);
         shooter2.setDirection(DcMotor.Direction.REVERSE);
 
+        // ========== LIGHT INDICATOR ==========
         shooterLight = hardwareMap.get(Servo.class, LIGHT_NAME);
 
-        // Gecko feed servos
+        // ========== FEEDER SERVOS ==========
         feedLeft = hardwareMap.get(CRServo.class, FEED_LEFT_NAME);
         feedRight = hardwareMap.get(CRServo.class, FEED_RIGHT_NAME);
 
-        // Servo directions — adjust if spinning wrong
         feedLeft.setDirection(CRServo.Direction.FORWARD);
         feedRight.setDirection(CRServo.Direction.FORWARD);
 
+        // ========== LIMELIGHT ==========
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.setPollRateHz(100);
         telemetry.setMsTransmissionInterval(11);
         limelight.pipelineSwitch(0);
         limelight.start();
 
-        // Populate distance → velocity map (distance in inches, velocity in ticks/sec)
+        // ========== DISTANCE-VELOCITY MAP ==========
         distVelMap = new AbstractBijectiveMap.NumericBijectiveMap();
-        distVelMap.put(20.0, 1200.0);
-        distVelMap.put(40.0, 1700.0);
-        distVelMap.put(60.0, 2100.0);
-        distVelMap.put(80.0, 2360.0);
+        distVelMap.put(DistanceVelocityMap.distance1, DistanceVelocityMap.velocity1);
+        distVelMap.put(DistanceVelocityMap.distance2, DistanceVelocityMap.velocity2);
+        distVelMap.put(DistanceVelocityMap.distance3, DistanceVelocityMap.velocity3);
+        distVelMap.put(DistanceVelocityMap.distance4, DistanceVelocityMap.velocity4);
 
-        telemetry.addLine("Pedro Pathing + Shooter + Feeder Ready");
+        telemetry.addLine("Pedro Pathing + Shooter + Limelight + Feeder Ready");
         telemetry.update();
     }
 
@@ -142,12 +193,15 @@ public class tagFinder extends OpMode {
     @Override
     public void loop() {
 
-        // ---------- Drivetrain with Pedro Pathing ----------
+        // Update PIDF coefficients from config (allows real-time tuning)
+        shooter.setVelocityPIDFCoefficients(ShooterPID.P, ShooterPID.I, ShooterPID.D, ShooterPID.F);
+
+        // ---------- DRIVETRAIN with Pedro Pathing ----------
         double y = -gamepad1.left_stick_y;   // Forward/backward
         double x = -gamepad1.left_stick_x;   // Strafe left/right
         double rx = -gamepad1.right_stick_x;  // Rotation (used when alignment OFF)
 
-        // ---------- Alliance Toggle (Start Button) ----------
+        // ---------- ALLIANCE TOGGLE (Start Button) ----------
         if (gamepad1.startWasPressed()) {
             isRedAlliance = !isRedAlliance;
         }
@@ -155,7 +209,7 @@ public class tagFinder extends OpMode {
 
         double currentHeading = follower.getPose().getHeading();
 
-        // ---------- Tag Alignment Toggle (A Button) ----------
+        // ---------- TAG ALIGNMENT TOGGLE (A Button) ----------
         if (gamepad1.aWasPressed()) {
             alignmentActive = !alignmentActive;
             if (alignmentActive) {
@@ -177,7 +231,7 @@ public class tagFinder extends OpMode {
                     if (fiducial.getFiducialId() == targetTagId) {
                         double tx = fiducial.getTargetXDegrees();
 
-                        if (Math.abs(tx) > ALIGNMENT_DEADBAND_DEG) {
+                        if (Math.abs(tx) > TagAlignmentControl.alignmentDeadbandDeg) {
                             // If the robot spins the wrong way, change minus to plus
                             targetHeading = currentHeading - Math.toRadians(tx);
                         }
@@ -189,11 +243,11 @@ public class tagFinder extends OpMode {
 
             // Compute heading error, normalize to [-π, π]
             double headingError = targetHeading - currentHeading;
-            while (headingError >  Math.PI) headingError -= 2 * Math.PI;
+            while (headingError > Math.PI) headingError -= 2 * Math.PI;
             while (headingError < -Math.PI) headingError += 2 * Math.PI;
 
             double rotationOutput = Math.max(-1.0, Math.min(1.0,
-                    Constants.followerConstants.getCoefficientsHeadingPIDF().P * headingError));
+                    TagAlignmentControl.headingPID_P * headingError));
 
             if (tagFound) {
                 // Tag visible — PID correction locks heading, right stick ignored
@@ -214,26 +268,31 @@ public class tagFinder extends OpMode {
 
         follower.update();
 
-        // ---------- Shooter velocity trim (bumpers fine-tune offset) ----------
-        if (gamepad1.right_bumper && !lastRightBumper) velocityTrimOffset += TRIM_STEP;
-        if (gamepad1.left_bumper && !lastLeftBumper)  velocityTrimOffset -= TRIM_STEP;
+        // ---------- SHOOTER VELOCITY TRIM (Bumpers fine-tune offset) ----------
+        if (gamepad1.right_bumper && !lastRightBumper) {
+            velocityTrimOffset += ShooterControl.trimStep;
+        }
+        if (gamepad1.left_bumper && !lastLeftBumper) {
+            velocityTrimOffset -= ShooterControl.trimStep;
+        }
 
         lastRightBumper = gamepad1.right_bumper;
-        lastLeftBumper  = gamepad1.left_bumper;
+        lastLeftBumper = gamepad1.left_bumper;
 
-        // ---------- Distance-based target velocity ----------
+        // ---------- DISTANCE-BASED TARGET VELOCITY ----------
         Pose currentPose = follower.getPose();
         Pose goal = isRedAlliance ? RED_GOAL : BLUE_GOAL;
-        double distanceToGoal = Math.max(0, Math.hypot(currentPose.getX() - goal.getX(), currentPose.getY() - goal.getY()) - 15.0);
+        double distanceToGoal = Math.max(0, Math.hypot(currentPose.getX() - goal.getX(), currentPose.getY() - goal.getY()) - 4.0);
 
         double targetVelocity = MathFunctions.clamp(
                 getVelocityForDistance(distanceToGoal) + velocityTrimOffset,
-                0, MAX_VELOCITY);
+                0, ShooterControl.maxVelocity);
 
-        // ---------- Shooter Speed Light Control ----------
+        // ---------- SHOOTER SPEED LIGHT CONTROL ----------
         double currentVelocity = shooter.getVelocity();
         boolean atSpeed = shooterOn &&
-                Math.abs(currentVelocity) >= targetVelocity - VELOCITY_TOLERANCE;
+                Math.abs(currentVelocity) >= (targetVelocity - ShooterControl.velocityTolerance) &&
+                Math.abs(currentVelocity) <= (targetVelocity + ShooterControl.velocityTolerance);
 
         // Track how long we've been at speed
         if (atSpeed && !wasAtSpeed) {
@@ -250,11 +309,11 @@ public class tagFinder extends OpMode {
 
         // Set light color based on state
         if (atSpeed && (System.currentTimeMillis() - shooterAtSpeedTime >= SPEED_STABLE_DURATION)) {
-            shooterLight.setPosition(0.42);  // green - stable at speed for 2 seconds
+            shooterLight.setPosition(LightIndicator.greenPosition);  // green - stable at speed
         } else if (shooterOn) {
-            shooterLight.setPosition(0.30);  // red - shooter on but not at speed yet
+            shooterLight.setPosition(LightIndicator.redPosition);    // red - spinning up
         } else {
-            shooterLight.setPosition(0.60);  // blue - shooter off
+            shooterLight.setPosition(LightIndicator.bluePosition);   // blue - off
         }
 
         // Toggle shooter (B button)
@@ -265,42 +324,79 @@ public class tagFinder extends OpMode {
         // Apply shooter state
         if (shooterOn) {
             shooter.setVelocity(targetVelocity);
-            shooter2.setPower(targetVelocity / MAX_VELOCITY); // no encoder, scale to 0-1
+            shooter2.setPower(targetVelocity / ShooterControl.maxVelocity); // no encoder, scale to 0-1
         } else {
             shooter.setVelocity(0);
             shooter2.setPower(0);
         }
 
-        // ---------- Gecko Feed Servos ----------
-        if (gamepad1.y) {
-            // Forward feed
-            feedLeft.setPower(1.0);
-            feedRight.setPower(-1.0);
-        } else if (gamepad1.x) {
-            // Reverse feed
-            feedLeft.setPower(-1.0);
-            feedRight.setPower(1.0);
-        } else {
-            // Stop feeding
-            feedLeft.setPower(0);
-            feedRight.setPower(0);
+        // ---------- FEEDER STATE MACHINE (Hold Y to fire continuously) ----------
+        long currentTime = System.currentTimeMillis();
+        long elapsedTime = currentTime - feederStateStartTime;
+
+        switch (feederState) {
+            case IDLE:
+                feedLeft.setPower(0);
+                feedRight.setPower(0);
+
+                if (gamepad1.y) {
+                    feederState = FeederState.FEEDING;
+                    feederStateStartTime = currentTime;
+                } else if (gamepad1.x) {
+                    // Reverse feed
+                    feedLeft.setPower(-1.0);
+                    feedRight.setPower(1.0);
+                }
+                break;
+
+            case FEEDING:
+                feedLeft.setPower(1.0);
+                feedRight.setPower(-1.0);
+
+                if (elapsedTime >= FeederTiming.feedPulseMS) {
+                    feederState = FeederState.COOLDOWN;
+                    feederStateStartTime = currentTime;
+                }
+
+                if (!gamepad1.y) {
+                    feederState = FeederState.IDLE;
+                }
+                break;
+
+            case COOLDOWN:
+                feedLeft.setPower(0);
+                feedRight.setPower(0);
+
+                if (!gamepad1.y) {
+                    feederState = FeederState.IDLE;
+                } else if (elapsedTime >= FeederTiming.feedCooldownMS) {
+                    feederState = FeederState.FEEDING;
+                    feederStateStartTime = currentTime;
+                }
+                break;
         }
 
-        // ---------- Debug Telemetry ----------
-        telemetry.addData("Y pressed", gamepad1.y);
-        telemetry.addData("X pressed", gamepad1.x);
+        // ---------- DEBUG TELEMETRY ----------
+        telemetry.addData("=== SHOOTER ===", "");
         telemetry.addData("Shooter On", shooterOn);
         telemetry.addData("Distance to Goal (in)", String.format("%.1f", distanceToGoal));
         telemetry.addData("Target Velocity (t/s)", String.format("%.0f", targetVelocity));
         telemetry.addData("Current Velocity (t/s)", String.format("%.0f", currentVelocity));
         telemetry.addData("Velocity Trim Offset", velocityTrimOffset);
+        telemetry.addData("At Speed", atSpeed);
+        telemetry.addData("PIDF", String.format("P=%.1f I=%.1f D=%.1f F=%.1f", ShooterPID.P, ShooterPID.I, ShooterPID.D, ShooterPID.F));
+
+        telemetry.addData("=== FEEDER ===", "");
+        telemetry.addData("Feeder State", feederState.toString());
         telemetry.addData("Feeder L Power", feedLeft.getPower());
         telemetry.addData("Feeder R Power", feedRight.getPower());
 
-        // Pedro telemetry
+        telemetry.addData("=== PEDRO PATHING ===", "");
         telemetry.addData("Current Pose", follower.getPose());
-        telemetry.addData("Current Heading (deg)", Math.toDegrees(currentHeading));
-        telemetry.addData("Target Heading (deg)", Math.toDegrees(targetHeading));
+        telemetry.addData("Current Heading (deg)", String.format("%.1f", Math.toDegrees(currentHeading)));
+        telemetry.addData("Target Heading (deg)", String.format("%.1f", Math.toDegrees(targetHeading)));
+
+        telemetry.addData("=== TAG ALIGNMENT ===", "");
         telemetry.addData("Alliance", isRedAlliance ? "RED" : "BLUE");
         telemetry.addData("Target Tag ID", targetTagId);
         telemetry.addData("Alignment Active", alignmentActive);
@@ -314,9 +410,9 @@ public class tagFinder extends OpMode {
             for (LLResultTypes.FiducialResult fiducial : fiducials) {
                 if (fiducial.getFiducialId() == targetTagId) {
                     telemetry.addData("Tag ID", fiducial.getFiducialId());
-                    telemetry.addData("TX (deg)", fiducial.getTargetXDegrees());
-                    telemetry.addData("TY (deg)", fiducial.getTargetYDegrees());
-                    telemetry.addData("TA (%)", fiducial.getTargetArea());
+                    telemetry.addData("TX (deg)", String.format("%.1f", fiducial.getTargetXDegrees()));
+                    telemetry.addData("TY (deg)", String.format("%.1f", fiducial.getTargetYDegrees()));
+                    telemetry.addData("TA (%)", String.format("%.1f", fiducial.getTargetArea()));
                     foundTarget = true;
                     break;
                 }
