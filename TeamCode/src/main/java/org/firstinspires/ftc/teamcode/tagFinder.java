@@ -44,7 +44,7 @@ public class tagFinder extends OpMode {
     @Configurable
     public static class FeederTiming {
         public static long feedPulseMS = 150;        // How long each shot feeds for
-        public static long feedCooldownMS = 500;     // Delay between shots
+        public static long feedCooldownMS = 300;     // Delay between shots
     }
 
     @Configurable
@@ -69,7 +69,7 @@ public class tagFinder extends OpMode {
     @Configurable
     public static class TagAlignmentControl {
         public static double alignmentDeadbandDeg = 0.7;
-        public static double headingPID_P = 0.02;  // Tune rotation response
+        // Uses Pedro Pathing's heading PID coefficients for rotation control
     }
 
     // ========== HARDWARE NAMES ==========
@@ -247,7 +247,7 @@ public class tagFinder extends OpMode {
             while (headingError < -Math.PI) headingError += 2 * Math.PI;
 
             double rotationOutput = Math.max(-1.0, Math.min(1.0,
-                    TagAlignmentControl.headingPID_P * headingError));
+                    Constants.followerConstants.getCoefficientsHeadingPIDF().P * headingError));
 
             if (tagFound) {
                 // Tag visible — PID correction locks heading, right stick ignored
