@@ -4,10 +4,11 @@ import com.bylazar.configurables.annotations.Configurable;
 @Configurable
 public class VelFinder {
     static DistValMapValue [] aimValues = {
-            new DistValMapValue(20, 1200),
-            new DistValMapValue(30, 1250),
-            new DistValMapValue(40, 1300),
-            new DistValMapValue(50, 1350)
+            new DistValMapValue(20, 1070),
+            new DistValMapValue(30, 1200),
+            new DistValMapValue(40, 1230),
+            new DistValMapValue(50, 1250),
+            new DistValMapValue(120, 1500)
     };
     public static double getVel(double distince){
         if (distince < aimValues[0].d){

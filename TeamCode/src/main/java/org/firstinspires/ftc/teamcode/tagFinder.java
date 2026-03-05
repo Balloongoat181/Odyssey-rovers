@@ -50,8 +50,8 @@ public class tagFinder extends OpMode {
         }
 
         public static class FeederTiming {
-            public long feedPulseMS = 150;
-            public long feedCooldownMS = 300;
+            public long feedPulseMS = 170;
+            public long feedCooldownMS = 500;
         }
 
         public static class LightIndicator {
