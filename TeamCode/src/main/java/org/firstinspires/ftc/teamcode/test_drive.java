@@ -17,7 +17,7 @@ public class test_drive extends OpMode {
     @Override
     public void init() {
 
-        // Drivetrain - only the two powered back wheels
+        // Drivetrain
         bl = hardwareMap.get(DcMotorEx.class, BL_NAME);
         br = hardwareMap.get(DcMotorEx.class, BR_NAME);
 
@@ -40,10 +40,7 @@ public class test_drive extends OpMode {
     @Override
     public void loop() {
 
-        // ---------- Drivetrain (tank/differential style, no strafing) ----------
-        // Forward/back comes from the left stick, turning comes from the right stick.
-        // With only two powered wheels (and two unpowered omni wheels), strafing
-        // isn't possible, so left_stick_x is intentionally unused.
+        // ---------- Drivetrain (tank/differential style) ----------
         double y  = -gamepad1.left_stick_y;
         double rx =  gamepad1.right_stick_x;
 
