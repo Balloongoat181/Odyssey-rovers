@@ -82,7 +82,7 @@ public class Bio extends OpMode {
         br.setDirection(DcMotor.Direction.FORWARD);
 
         shooter.setDirection(DcMotor.Direction.FORWARD);
-        intake.setDirection(DcMotor.Direction.FORWARD);
+        intake.setDirection(DcMotor.Direction.REVERSE);
         intake2.setDirection(DcMotor.Direction.REVERSE);
 
         // Servo directions — adjust if spinning wrong
