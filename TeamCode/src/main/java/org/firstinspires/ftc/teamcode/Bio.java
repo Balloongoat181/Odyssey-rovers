@@ -14,7 +14,7 @@ public class Bio extends OpMode {
     private static final String BL_NAME = "BL_NAME";
     private static final String BR_NAME = "BR_NAME";
     private static final String SHOOTER_NAME = "SHOOTER_NAME";
-    private static final String FEEDER_NAME = "feeder";
+    private static final String FEEDER_NAME = "FEEDER_NAME";
     private static final String TAKE1_NAME = "TAKE1_NAME";
     private static final String TAKE2_NAME = "TAKE2_NAME";
 
