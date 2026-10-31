@@ -2,13 +2,12 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
-@TeleOp(name = "Mecanum Drive TeleOp", group = "Drive")
-public class Bio extends OpMode {
+@TeleOp(name = "M_Telop 2 Drive", group = "Drive")
+public class M_Telop_2 extends OpMode {
 
     private static final String FL_NAME = "FL_NAME";
     private static final String FR_NAME = "FR_NAME";
@@ -117,18 +116,18 @@ public class Bio extends OpMode {
         br.setPower(brPower / max);
 
         // ---------- Shooter power adjust ----------
-        if (gamepad1.rightBumperWasPressed()) shooterPower += 0.05;
-        if (gamepad1.leftBumperWasPressed()) shooterPower -= 0.05;
+        if (gamepad2.rightBumperWasPressed()) shooterPower += 0.05;
+        if (gamepad2.leftBumperWasPressed()) shooterPower -= 0.05;
 
         shooterPower = Math.max(0.0, Math.min(1.0, shooterPower));
 
-        if (gamepad1.dpadUpWasPressed()) intakePower += .1;
-        if (gamepad1.dpadDownWasPressed()) intakePower -= .1;
+        if (gamepad2.dpadUpWasPressed()) intakePower += .1;
+        if (gamepad2.dpadDownWasPressed()) intakePower -= .1;
 
         intakePower = Math.max(0.0, Math.min(1.0, intakePower));
 
         // Toggle shooter
-        if (gamepad1.bWasPressed()) {
+        if (gamepad2.bWasPressed()) {
             shooterOn = !shooterOn;
         }
 
@@ -139,12 +138,12 @@ public class Bio extends OpMode {
             shooter.setPower(0);
         }
 
-        if (gamepad1.aWasPressed()) {
+        if (gamepad2.aWasPressed()) {
             intakeOn = !intakeOn;
         }
 
         // Toggle intake direction with X button
-        if (gamepad1.xWasPressed()) {
+        if (gamepad2.xWasPressed()) {
             intakeReversed = !intakeReversed;
         }
 
@@ -159,10 +158,10 @@ public class Bio extends OpMode {
         }
 
         // Feeder control (Triggers > 0.1)
-        if (gamepad1.right_trigger > 0.1) {
+        if (gamepad2.right_trigger > 0.1) {
             // Forward feed
             feeder.setPower(1.0);
-        } else if (gamepad1.left_trigger > 0.1) {
+        } else if (gamepad2.left_trigger > 0.1) {
             // Reverse feed
             feeder.setPower(-1.0);
         } else {
