@@ -41,18 +41,18 @@ public class Constants {
 
     public static ForesightConfig foresightConfig = new ForesightConfig(
             c -> {
-                Controller primaryTranslationalForward = Controller.proportional(0.33835067485637227);
-                Controller secondaryTranslationalForward = Controller.proportional(0.1250115334628888);
-                Controller primaryTranslationalLateral = Controller.proportional(0.5221910149361718);
-                Controller secondaryTranslationalLateral = Controller.proportional(0.1929356268180166);
+                Controller primaryTranslationalForward = Controller.proportional(() -> TunableConstants.forwardP);
+                Controller secondaryTranslationalForward = Controller.proportional(() -> TunableConstants.forwardSecondaryP);
+                Controller primaryTranslationalLateral = Controller.proportional(() -> TunableConstants.strafeP);
+                Controller secondaryTranslationalLateral = Controller.proportional(() -> TunableConstants.strafeSecondaryP);
 
                 c.forwardTranslational.set(Controller.piecewise(secondaryTranslationalForward).put(2.5, primaryTranslationalForward));
                 c.strafeTranslational.set(Controller.piecewise(secondaryTranslationalLateral).put(2.5, primaryTranslationalLateral));
 
-                c.coast.set(Controller.proportionalFeedforward(0.017820612627623536));
-                c.brake.set(Controller.proportionalFeedforward(0.015147520733480005));
+                c.coast.set(Controller.proportionalFeedforward(() -> TunableConstants.coastFF));
+                c.brake.set(Controller.proportionalFeedforward(() -> TunableConstants.brakeFF));
 
-                c.headingFeedback.set(Controller.proportional(6.52844832805518));
+                c.headingFeedback.set(Controller.proportional(() -> TunableConstants.headingP));
                 c.headingBrakeCoefficients.set(Vector2D.cartesian(0.0733623833422629, -0.001998221650928741));
 
                 c.linearBrakeCoefficients.set(Matrix.diag(0.0728868348804133, 0.0480624999735906));
